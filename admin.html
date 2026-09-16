@@ -28,6 +28,7 @@
 
   <div class="admin-card">
     <h2>Liberar acesso manual</h2>
+    <p class="admin-muted">Preencha o e-mail da compra e clique em <b>Gerar chave</b>. A chave aparece na tabela abaixo.</p>
     <div class="admin-row">
       <div class="field">
         <label for="newEmail">E-mail do cliente</label>
@@ -39,6 +40,7 @@
       </div>
       <button class="btn btn-primary" id="btnCreate" type="button">Gerar chave</button>
     </div>
+    <div id="createMsg" class="admin-msg" hidden></div>
   </div>
 
   <div class="admin-card">
@@ -69,10 +71,28 @@
   function $(id) { return document.getElementById(id); }
   function token() { return ($('adminToken').value || '').trim(); }
   function msg(text, ok) {
-    var el = $('adminMsg');
-    el.hidden = !text;
-    el.textContent = text || '';
-    el.className = 'admin-msg ' + (ok ? 'ok' : 'err');
+    ['adminMsg', 'createMsg'].forEach(function (id) {
+      var el = $(id);
+      if (!el) return;
+      el.hidden = !text;
+      el.textContent = text || '';
+      el.className = 'admin-msg ' + (ok ? 'ok' : 'err');
+    });
+  }
+
+  function parseJson(r) {
+    return r.text().then(function (t) {
+      try { return JSON.parse(t); }
+      catch (e) { return { ok: false, error: 'Servidor ocupado. Tente de novo em alguns segundos.' }; }
+    });
+  }
+
+  function api(path, opts) {
+    var ctrl = new AbortController();
+    var timer = setTimeout(function () { ctrl.abort(); }, 20000);
+    return fetch(path, Object.assign({ signal: ctrl.signal }, opts || {}))
+      .then(parseJson)
+      .finally(function () { clearTimeout(timer); });
   }
   function headers() {
     return { 'Content-Type': 'application/json', 'x-admin-token': token() };
@@ -112,33 +132,48 @@
   function load() {
     if (!token()) { msg('Informe o token admin.', false); return; }
     try { localStorage.setItem(TOKEN_KEY, token()); } catch (e) {}
-    fetch('/api/admin/licenses', { headers: headers() })
-      .then(function (r) { return r.json().then(function (d) { return { r: r, d: d }; }); })
-      .then(function (x) {
-        if (!x.d.ok) { msg(x.d.error || 'Falha ao carregar', false); return; }
-        msg(x.d.licenses.length + ' licença(s) carregada(s).', true);
-        render(x.d.licenses);
+    api('/api/admin/licenses', { headers: headers() })
+      .then(function (d) {
+        if (!d.ok) { msg(d.error || 'Falha ao carregar', false); return; }
+        msg((d.licenses || []).length + ' licença(s) carregada(s).', true);
+        render(d.licenses);
       })
-      .catch(function () { msg('Servidor indisponível.', false); });
+      .catch(function () { msg('Servidor indisponível. Tente de novo.', false); });
+  }
+
+  function busy(btn, label) {
+    if (!btn) return function () {};
+    btn.disabled = true;
+    var prev = btn.textContent;
+    btn.textContent = label;
+    return function () {
+      btn.disabled = false;
+      btn.textContent = prev;
+    };
   }
 
   $('btnLoad').addEventListener('click', load);
   $('btnCreate').addEventListener('click', function () {
     if (!token()) { msg('Informe o token admin.', false); return; }
-    fetch('/api/admin/licenses', {
+    var email = ($('newEmail').value || '').trim();
+    if (!email) { msg('Informe o e-mail do cliente.', false); return; }
+    var done = busy($('btnCreate'), 'Gerando...');
+    msg('Gerando chave e enviando e-mail. Aguarde alguns segundos.', true);
+    api('/api/admin/licenses', {
       method: 'POST',
       headers: headers(),
-      body: JSON.stringify({ email: $('newEmail').value, name: $('newName').value })
+      body: JSON.stringify({ email: email, name: $('newName').value })
     })
-      .then(function (r) { return r.json(); })
       .then(function (d) {
         if (!d.ok) { msg(d.error || 'Erro ao criar', false); return; }
-        msg('Chave gerada: ' + d.license.accessKey + (d.emailSent ? ' (e-mail enviado)' : ' (envie manualmente)'), true);
+        var chave = d.license && d.license.accessKey ? d.license.accessKey : '';
+        msg('Chave gerada: ' + chave + (d.emailSent ? ' (e-mail enviado)' : ' (copie a chave abaixo se o e-mail não chegar)'), true);
         $('newEmail').value = '';
         $('newName').value = '';
         load();
       })
-      .catch(function () { msg('Servidor indisponível.', false); });
+      .catch(function () { msg('O servidor demorou. Clique em Carregar licenças — a chave pode já ter sido gerada.', false); })
+      .finally(done);
   });
 
   $('licenseRows').addEventListener('click', function (ev) {
@@ -150,27 +185,29 @@
       return;
     }
     if (t.dataset.resend) {
-      fetch('/api/admin/resend', {
+      var stopResend = busy(t, 'Enviando...');
+      api('/api/admin/resend', {
         method: 'POST',
         headers: headers(),
         body: JSON.stringify({ email: t.dataset.resend })
-      }).then(function (r) { return r.json(); }).then(function (d) {
+      }).then(function (d) {
         if (!d.ok) { msg(d.error || 'Falha', false); return; }
-        msg(d.emailSent ? 'E-mail reenviado.' : ('SMTP off — chave: ' + d.accessKey), true);
-      });
+        msg(d.emailSent ? 'E-mail reenviado.' : ('E-mail não saiu — chave: ' + d.accessKey), true);
+      }).catch(function () { msg('Falha ao reenviar. Tente de novo.', false); })
+        .finally(stopResend);
       return;
     }
     if (t.dataset.revoke) {
       if (!confirm('Revogar acesso de ' + t.dataset.revoke + '?')) return;
-      fetch('/api/admin/revoke', {
+      api('/api/admin/revoke', {
         method: 'POST',
         headers: headers(),
         body: JSON.stringify({ email: t.dataset.revoke })
-      }).then(function (r) { return r.json(); }).then(function (d) {
+      }).then(function (d) {
         if (!d.ok) { msg(d.error || 'Falha', false); return; }
         msg('Acesso revogado.', true);
         load();
-      });
+      }).catch(function () { msg('Falha ao revogar. Tente de novo.', false); });
     }
   });
 

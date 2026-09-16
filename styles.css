@@ -86,6 +86,7 @@ a.btn{display:inline-flex;align-items:center;justify-content:center;text-decorat
 .admin-card h2{font-size:1.05rem;font-weight:800;color:var(--brand-navy);margin-bottom:12px}
 .admin-muted{font-size:.88rem;color:var(--muted);margin-bottom:14px}
 .admin-row{display:flex;gap:10px;flex-wrap:wrap;align-items:end}
+.admin-row .btn{white-space:nowrap;flex:none}
 .admin-row .field{flex:1;min-width:180px}
 .admin-row label{display:block;font-size:.74rem;font-weight:800;color:var(--brand-navy);text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px}
 .admin-row input{width:100%;padding:11px 13px;border:1.5px solid var(--field-line);border-radius:var(--btn-radius);font-size:.95rem;font-weight:600;background:var(--field)}
@@ -423,6 +424,7 @@ table.trans td.muted{color:var(--muted);font-weight:500}
 
 .actions{margin-top:22px;display:flex;gap:12px;flex-wrap:wrap;align-items:center}
 .btn{border:0;border-radius:var(--btn-radius);padding:12px 22px;font-weight:800;font-size:.88rem;letter-spacing:.06em;text-transform:uppercase;cursor:pointer;transition:.15s;font-family:inherit}
+.btn:disabled{opacity:.65;cursor:wait}
 .btn-primary{background:var(--blue);color:#fff}
 .btn-primary:hover{background:var(--blue-deep)}
 .btn-ghost{background:#fff;border:1.5px solid var(--blue);color:var(--ink)}

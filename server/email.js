@@ -6,6 +6,10 @@ function smtpConfigured() {
   return Boolean(process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS);
 }
 
+function smtpPass() {
+  return String(process.env.SMTP_PASS || '').replace(/^["']|["']$/g, '');
+}
+
 function getTransporter() {
   if (!smtpConfigured()) return null;
   return nodemailer.createTransport({
@@ -14,8 +18,11 @@ function getTransporter() {
     secure: String(process.env.SMTP_PORT || '587') === '465',
     auth: {
       user: process.env.SMTP_USER,
-      pass: process.env.SMTP_PASS
-    }
+      pass: smtpPass()
+    },
+    connectionTimeout: 8000,
+    greetingTimeout: 8000,
+    socketTimeout: 12000
   });
 }
 
@@ -49,8 +56,13 @@ async function sendAccessEmail({ to, name, accessKey }) {
     return { sent: false, reason: 'smtp_not_configured' };
   }
 
-  await transporter.sendMail({ from, to, subject, text, html });
-  return { sent: true };
+  try {
+    await transporter.sendMail({ from, to, subject, text, html });
+    return { sent: true };
+  } catch (err) {
+    console.error('[email] falha no envio da chave:', err.message);
+    return { sent: false, reason: err.message };
+  }
 }
 
 function escapeHtml(value) {
@@ -90,15 +102,20 @@ async function sendContactEmail({ name, email, subject, message }) {
     return { sent: false, reason: 'smtp_not_configured' };
   }
 
-  await transporter.sendMail({
-    from,
-    to,
-    replyTo: safeEmail,
-    subject: mailSubject,
-    text,
-    html
-  });
-  return { sent: true };
+  try {
+    await transporter.sendMail({
+      from,
+      to,
+      replyTo: safeEmail,
+      subject: mailSubject,
+      text,
+      html
+    });
+    return { sent: true };
+  } catch (err) {
+    console.error('[email] falha no contato:', err.message);
+    return { sent: false, reason: err.message };
+  }
 }
 
 module.exports = {
