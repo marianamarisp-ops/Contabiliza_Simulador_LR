@@ -7,7 +7,38 @@ const express = require('express');
 const { authenticate, listLicenses, createManualLicense, revokeByEmail } = require('./licenses');
 const { createSessionToken, requireAuth, requireAdmin, verifySessionToken } = require('./auth');
 const { handleCaktoWebhook } = require('./webhook');
-const { sendAccessEmail, smtpConfigured } = require('./email');
+const { sendAccessEmail, sendContactEmail, smtpConfigured } = require('./email');
+
+const CONTACT_WINDOW_MS = 10 * 60 * 1000;
+const CONTACT_MAX = 3;
+const contactHits = new Map();
+const CONTACT_SUBJECTS = [
+  'Chave de acesso não recebida',
+  'Dúvida sobre o acesso',
+  'Outro assunto'
+];
+
+function clientIp(req) {
+  const forwarded = req.headers['x-forwarded-for'];
+  if (forwarded) return String(forwarded).split(',')[0].trim();
+  return req.ip || req.socket.remoteAddress || 'unknown';
+}
+
+function tooManyContact(ip) {
+  const now = Date.now();
+  const list = (contactHits.get(ip) || []).filter((t) => now - t < CONTACT_WINDOW_MS);
+  if (list.length >= CONTACT_MAX) {
+    contactHits.set(ip, list);
+    return true;
+  }
+  list.push(now);
+  contactHits.set(ip, list);
+  return false;
+}
+
+function isValidEmail(value) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value || '').trim());
+}
 
 const app = express();
 const ROOT = path.join(__dirname, '..');
@@ -43,6 +74,45 @@ app.post('/api/auth/login', (req, res) => {
 
 app.get('/api/auth/me', requireAuth, (req, res) => {
   res.json({ ok: true, user: { email: req.user.email, name: req.user.name || '' } });
+});
+
+app.post('/api/contact', async (req, res) => {
+  const body = req.body || {};
+  if (String(body.website || '').trim()) {
+    return res.json({ ok: true });
+  }
+  const name = String(body.name || '').trim();
+  const email = String(body.email || '').trim().toLowerCase();
+  const subject = String(body.subject || '').trim();
+  const message = String(body.message || '').trim();
+  if (name.length < 2 || name.length > 80) {
+    return res.status(400).json({ ok: false, error: 'Informe um nome válido.' });
+  }
+  if (!isValidEmail(email)) {
+    return res.status(400).json({ ok: false, error: 'Informe um e-mail válido.' });
+  }
+  if (!CONTACT_SUBJECTS.includes(subject)) {
+    return res.status(400).json({ ok: false, error: 'Selecione um assunto.' });
+  }
+  if (message.length < 10 || message.length > 2000) {
+    return res.status(400).json({ ok: false, error: 'A mensagem precisa ter entre 10 e 2000 caracteres.' });
+  }
+  if (tooManyContact(clientIp(req))) {
+    return res.status(429).json({ ok: false, error: 'Aguarde alguns minutos antes de enviar outra mensagem.' });
+  }
+  try {
+    const mail = await sendContactEmail({ name, email, subject, message });
+    if (!mail.sent) {
+      return res.status(503).json({
+        ok: false,
+        error: 'O envio de e-mail está indisponível no momento. Tente novamente em instantes.'
+      });
+    }
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('[contact]', err);
+    res.status(500).json({ ok: false, error: 'Não foi possível enviar a mensagem. Tente novamente.' });
+  }
 });
 
 app.post('/webhook/cakto', async (req, res) => {

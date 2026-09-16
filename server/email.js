@@ -53,7 +53,56 @@ async function sendAccessEmail({ to, name, accessKey }) {
   return { sent: true };
 }
 
+function escapeHtml(value) {
+  return String(value || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+async function sendContactEmail({ name, email, subject, message }) {
+  const to = process.env.CONTACT_EMAIL || process.env.SMTP_USER || 'contabiliza.simulador@gmail.com';
+  const from = process.env.SMTP_FROM || process.env.SMTP_USER;
+  const transporter = getTransporter();
+  const safeName = String(name || '').trim();
+  const safeEmail = String(email || '').trim();
+  const safeSubject = String(subject || 'Contato pelo simulador').trim();
+  const safeMessage = String(message || '').trim();
+
+  const mailSubject = '[Contato simulador] ' + safeSubject;
+  const text =
+    `Nova mensagem pelo formulário Fale conosco.\n\n` +
+    `Nome: ${safeName}\n` +
+    `E-mail: ${safeEmail}\n` +
+    `Assunto: ${safeSubject}\n\n` +
+    `${safeMessage}\n`;
+  const html =
+    `<p>Nova mensagem pelo formulário <b>Fale conosco</b>.</p>` +
+    `<p><b>Nome:</b> ${escapeHtml(safeName)}<br>` +
+    `<b>E-mail:</b> ${escapeHtml(safeEmail)}<br>` +
+    `<b>Assunto:</b> ${escapeHtml(safeSubject)}</p>` +
+    `<p style="white-space:pre-wrap">${escapeHtml(safeMessage)}</p>`;
+
+  if (!transporter) {
+    console.log('[email] SMTP não configurado — contato NÃO enviado.');
+    console.log(`[email] De: ${safeEmail} | Assunto: ${safeSubject}`);
+    return { sent: false, reason: 'smtp_not_configured' };
+  }
+
+  await transporter.sendMail({
+    from,
+    to,
+    replyTo: safeEmail,
+    subject: mailSubject,
+    text,
+    html
+  });
+  return { sent: true };
+}
+
 module.exports = {
   smtpConfigured,
-  sendAccessEmail
+  sendAccessEmail,
+  sendContactEmail
 };

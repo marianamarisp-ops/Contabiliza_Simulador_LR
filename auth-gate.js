@@ -53,6 +53,7 @@
     if (app) app.hidden = true;
     var chip = $('authUserChip');
     if (chip) chip.hidden = true;
+    showContact(false);
     if (msg) {
       var err = $('authError');
       if (err) {
@@ -69,9 +70,88 @@
     if (err) err.hidden = true;
   }
 
+  function showContact(open) {
+    var loginCard = $('authLoginCard');
+    var contactCard = $('authContactCard');
+    if (loginCard) loginCard.hidden = !!open;
+    if (contactCard) contactCard.hidden = !open;
+    var err = $('contactError');
+    var ok = $('contactOk');
+    if (err) { err.hidden = true; err.textContent = ''; }
+    if (ok) { ok.hidden = true; ok.textContent = ''; }
+    if (open) {
+      var loginEmail = ($('authEmail') || {}).value || '';
+      var contactEmail = $('contactEmail');
+      if (contactEmail && !contactEmail.value && loginEmail) contactEmail.value = loginEmail;
+      var nameField = $('contactName');
+      if (nameField) nameField.focus();
+    }
+  }
+
   function boot() {
     var logoutBtn = $('authLogout');
     if (logoutBtn) logoutBtn.addEventListener('click', logout);
+
+    var contactOpen = $('authContactOpen');
+    var contactBack = $('contactBack');
+    if (contactOpen) contactOpen.addEventListener('click', function () { showContact(true); });
+    if (contactBack) contactBack.addEventListener('click', function () { showContact(false); });
+
+    var contactForm = $('contactForm');
+    if (contactForm) {
+      contactForm.addEventListener('submit', function (ev) {
+        ev.preventDefault();
+        var btn = $('contactSubmit');
+        var err = $('contactError');
+        var ok = $('contactOk');
+        if (err) { err.hidden = true; err.textContent = ''; }
+        if (ok) { ok.hidden = true; ok.textContent = ''; }
+        if (btn) { btn.disabled = true; btn.textContent = 'Enviando…'; }
+        api('/api/contact', {
+          method: 'POST',
+          body: {
+            name: ($('contactName') || {}).value || '',
+            email: ($('contactEmail') || {}).value || '',
+            subject: ($('contactSubject') || {}).value || '',
+            message: ($('contactMessage') || {}).value || '',
+            website: ($('contactWebsite') || {}).value || ''
+          }
+        }).then(function (r) {
+          if (btn) { btn.disabled = false; btn.textContent = 'Enviar mensagem'; }
+          if (!r.data || !r.data.ok) {
+            if (err) {
+              err.hidden = false;
+              err.textContent = (r.data && r.data.error) || 'Não foi possível enviar a mensagem.';
+            }
+            return;
+          }
+          if (ok) {
+            ok.hidden = false;
+            ok.textContent = 'Mensagem enviada. Em breve o suporte Contabiliza responde no e-mail informado.';
+          }
+          contactForm.reset();
+        }).catch(function () {
+          if (btn) { btn.disabled = false; btn.textContent = 'Enviar mensagem'; }
+          if (err) {
+            err.hidden = false;
+            err.textContent = 'Falha de conexão com o servidor. Tente novamente em instantes.';
+          }
+        });
+      });
+    }
+
+    var keyInput = $('authKey');
+    var keyToggle = $('authKeyToggle');
+    if (keyInput && keyToggle) {
+      keyToggle.addEventListener('click', function () {
+        var showing = keyInput.type === 'text';
+        keyInput.type = showing ? 'password' : 'text';
+        keyToggle.textContent = showing ? 'Mostrar' : 'Ocultar';
+        keyToggle.setAttribute('aria-pressed', showing ? 'false' : 'true');
+        keyToggle.setAttribute('aria-label', showing ? 'Mostrar chave de acesso' : 'Ocultar chave de acesso');
+        keyInput.focus();
+      });
+    }
 
     var form = $('authForm');
     if (form) {
