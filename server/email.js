@@ -6,12 +6,45 @@ function smtpConfigured() {
   return Boolean(process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS);
 }
 
+function webhookConfigured() {
+  return Boolean(process.env.EMAIL_WEBHOOK_URL && process.env.EMAIL_WEBHOOK_SECRET);
+}
+
+function smtpAllowed() {
+  if (process.env.EMAIL_ALLOW_SMTP === 'true') return true;
+  if (String(process.env.RENDER || '').toLowerCase() === 'true') return false;
+  return true;
+}
+
+function mailConfigured() {
+  return webhookConfigured() || (smtpConfigured() && smtpAllowed());
+}
+
+function mailProvider() {
+  if (webhookConfigured()) return 'gmail_https';
+  if (smtpConfigured() && smtpAllowed()) return 'smtp';
+  if (smtpConfigured()) return 'smtp_blocked';
+  return 'none';
+}
+
 function smtpPass() {
   return String(process.env.SMTP_PASS || '').replace(/^["']|["']$/g, '');
 }
 
+function parseFrom(raw) {
+  const value = String(raw || '').replace(/^["']|["']$/g, '').trim();
+  const match = value.match(/^(.*)<([^>]+)>\s*$/);
+  if (match) {
+    return {
+      name: match[1].replace(/^["']|["']$/g, '').trim() || 'Contabiliza',
+      email: match[2].trim()
+    };
+  }
+  return { name: 'Contabiliza', email: value };
+}
+
 function getTransporter() {
-  if (!smtpConfigured()) return null;
+  if (!smtpConfigured() || !smtpAllowed()) return null;
   return nodemailer.createTransport({
     host: process.env.SMTP_HOST,
     port: Number(process.env.SMTP_PORT || 587),
@@ -26,11 +59,77 @@ function getTransporter() {
   });
 }
 
+function fromHeader() {
+  return process.env.SMTP_FROM || process.env.SMTP_USER || 'contabiliza.simulador@gmail.com';
+}
+
+async function sendViaWebhook({ from, to, subject, text, html, replyTo }) {
+  const url = process.env.EMAIL_WEBHOOK_URL;
+  const parsed = parseFrom(from);
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 20000);
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      redirect: 'follow',
+      signal: controller.signal,
+      body: JSON.stringify({
+        secret: process.env.EMAIL_WEBHOOK_SECRET,
+        to,
+        subject,
+        text,
+        html,
+        replyTo: replyTo || undefined,
+        fromName: parsed.name
+      })
+    });
+    const raw = await response.text();
+    let payload = null;
+    try {
+      payload = JSON.parse(raw);
+    } catch (_err) {
+      payload = null;
+    }
+    if (!response.ok || !payload || payload.ok === false) {
+      const reason = (payload && (payload.error || payload.reason)) || raw.slice(0, 180) || ('http_' + response.status);
+      return { sent: false, reason: String(reason) };
+    }
+    return { sent: true, provider: 'gmail_https' };
+  } catch (err) {
+    return { sent: false, reason: err.name === 'AbortError' ? 'webhook_timeout' : err.message };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function sendViaSmtp({ from, to, subject, text, html, replyTo }) {
+  const transporter = getTransporter();
+  if (!transporter) {
+    if (smtpConfigured() && !smtpAllowed()) {
+      return { sent: false, reason: 'smtp_blocked_on_render' };
+    }
+    return { sent: false, reason: 'smtp_not_configured' };
+  }
+  await transporter.sendMail({ from, to, subject, text, html, replyTo });
+  return { sent: true, provider: 'smtp' };
+}
+
+async function sendMail({ to, subject, text, html, replyTo }) {
+  const from = fromHeader();
+  if (webhookConfigured()) {
+    const viaWebhook = await sendViaWebhook({ from, to, subject, text, html, replyTo });
+    if (viaWebhook.sent) return viaWebhook;
+    console.error('[email] webhook falhou:', viaWebhook.reason);
+    const viaSmtp = await sendViaSmtp({ from, to, subject, text, html, replyTo });
+    if (viaSmtp.sent) return viaSmtp;
+    return viaWebhook;
+  }
+  return sendViaSmtp({ from, to, subject, text, html, replyTo });
+}
+
 async function sendAccessEmail({ to, name, accessKey }) {
   const appUrl = process.env.PUBLIC_APP_URL || 'http://localhost:3000';
-  const from = process.env.SMTP_FROM || process.env.SMTP_USER;
-  const transporter = getTransporter();
-
   const subject = 'Seu acesso ao Simulador Contabiliza';
   const text =
     `Olá${name ? ' ' + name : ''},\n\n` +
@@ -40,7 +139,6 @@ async function sendAccessEmail({ to, name, accessKey }) {
     `Chave de acesso: ${accessKey}\n\n` +
     `Guarde esta chave. Em caso de dúvida, responda este e-mail.\n\n` +
     `Contabiliza`;
-
   const html =
     `<p>Olá${name ? ' ' + name : ''},</p>` +
     `<p>Seu pagamento foi confirmado. Use os dados abaixo para entrar:</p>` +
@@ -50,15 +148,14 @@ async function sendAccessEmail({ to, name, accessKey }) {
     `<p>Guarde esta chave. Em caso de dúvida, fale com o suporte.</p>` +
     `<p>Contabiliza</p>`;
 
-  if (!transporter) {
-    console.log('[email] SMTP não configurado — chave NÃO enviada por e-mail.');
+  if (!mailConfigured()) {
+    console.log('[email] envio não configurado — chave NÃO enviada por e-mail.');
     console.log(`[email] Destinatário: ${to} | Chave: ${accessKey}`);
     return { sent: false, reason: 'smtp_not_configured' };
   }
 
   try {
-    await transporter.sendMail({ from, to, subject, text, html });
-    return { sent: true };
+    return await sendMail({ to, subject, text, html });
   } catch (err) {
     console.error('[email] falha no envio da chave:', err.message);
     return { sent: false, reason: err.message };
@@ -75,13 +172,10 @@ function escapeHtml(value) {
 
 async function sendContactEmail({ name, email, subject, message }) {
   const to = process.env.CONTACT_EMAIL || process.env.SMTP_USER || 'contabiliza.simulador@gmail.com';
-  const from = process.env.SMTP_FROM || process.env.SMTP_USER;
-  const transporter = getTransporter();
   const safeName = String(name || '').trim();
   const safeEmail = String(email || '').trim();
   const safeSubject = String(subject || 'Contato pelo simulador').trim();
   const safeMessage = String(message || '').trim();
-
   const mailSubject = '[Contato simulador] ' + safeSubject;
   const text =
     `Nova mensagem pelo formulário Fale conosco.\n\n` +
@@ -96,22 +190,20 @@ async function sendContactEmail({ name, email, subject, message }) {
     `<b>Assunto:</b> ${escapeHtml(safeSubject)}</p>` +
     `<p style="white-space:pre-wrap">${escapeHtml(safeMessage)}</p>`;
 
-  if (!transporter) {
-    console.log('[email] SMTP não configurado — contato NÃO enviado.');
+  if (!mailConfigured()) {
+    console.log('[email] envio não configurado — contato NÃO enviado.');
     console.log(`[email] De: ${safeEmail} | Assunto: ${safeSubject}`);
     return { sent: false, reason: 'smtp_not_configured' };
   }
 
   try {
-    await transporter.sendMail({
-      from,
+    return await sendMail({
       to,
-      replyTo: safeEmail,
       subject: mailSubject,
       text,
-      html
+      html,
+      replyTo: safeEmail
     });
-    return { sent: true };
   } catch (err) {
     console.error('[email] falha no contato:', err.message);
     return { sent: false, reason: err.message };
@@ -120,6 +212,8 @@ async function sendContactEmail({ name, email, subject, message }) {
 
 module.exports = {
   smtpConfigured,
+  mailConfigured,
+  mailProvider,
   sendAccessEmail,
   sendContactEmail
 };

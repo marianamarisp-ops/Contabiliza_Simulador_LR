@@ -7,7 +7,7 @@ const express = require('express');
 const { authenticate, listLicenses, createManualLicense, revokeByEmail } = require('./licenses');
 const { createSessionToken, requireAuth, requireAdmin, verifySessionToken } = require('./auth');
 const { handleCaktoWebhook } = require('./webhook');
-const { sendAccessEmail, sendContactEmail, smtpConfigured } = require('./email');
+const { sendAccessEmail, sendContactEmail, smtpConfigured, mailConfigured, mailProvider } = require('./email');
 
 const CONTACT_WINDOW_MS = 10 * 60 * 1000;
 const CONTACT_MAX = 3;
@@ -50,6 +50,8 @@ app.get('/api/health', (_req, res) => {
   res.json({
     ok: true,
     smtp: smtpConfigured(),
+    email: mailConfigured(),
+    emailProvider: mailProvider(),
     publicUrl: process.env.PUBLIC_APP_URL || null
   });
 });
