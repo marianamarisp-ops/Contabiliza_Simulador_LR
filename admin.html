@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admin · Contabiliza simulador - LR</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;600;700;800&display=swap" rel="stylesheet">
+<link rel="icon" type="image/svg+xml" href="logo-contabiliza.svg">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div class="admin-wrap">
+  <div class="admin-card">
+    <img class="auth-logo" alt="Contabiliza" src="logo-contabiliza.svg">
+    <h1>Painel de acessos</h1>
+    <p class="admin-muted">Use o mesmo <b>ADMIN_TOKEN</b> do arquivo <code>.env</code>. Aqui você libera clientes manualmente, copia chaves e reenvia e-mail.</p>
+    <div class="admin-row">
+      <div class="field" style="flex:1.4">
+        <label for="adminToken">Token admin</label>
+        <input id="adminToken" type="password" placeholder="Cole o ADMIN_TOKEN" autocomplete="off">
+      </div>
+      <button class="btn btn-primary" id="btnLoad" type="button">Carregar licenças</button>
+    </div>
+    <div id="adminMsg" class="admin-msg" hidden></div>
+  </div>
+
+  <div class="admin-card">
+    <h2>Liberar acesso manual</h2>
+    <div class="admin-row">
+      <div class="field">
+        <label for="newEmail">E-mail do cliente</label>
+        <input id="newEmail" type="email" placeholder="cliente@empresa.com">
+      </div>
+      <div class="field">
+        <label for="newName">Nome (opcional)</label>
+        <input id="newName" type="text" placeholder="Nome">
+      </div>
+      <button class="btn btn-primary" id="btnCreate" type="button">Gerar chave</button>
+    </div>
+  </div>
+
+  <div class="admin-card">
+    <h2>Licenças</h2>
+    <div class="table-scroll">
+      <table class="admin-table">
+        <thead>
+          <tr>
+            <th>Cliente</th>
+            <th>Chave</th>
+            <th>Status</th>
+            <th>Pedido</th>
+            <th>Ações</th>
+          </tr>
+        </thead>
+        <tbody id="licenseRows">
+          <tr><td colspan="5">Carregue com o token admin.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  var TOKEN_KEY = 'contabiliza_admin_token';
+
+  function $(id) { return document.getElementById(id); }
+  function token() { return ($('adminToken').value || '').trim(); }
+  function msg(text, ok) {
+    var el = $('adminMsg');
+    el.hidden = !text;
+    el.textContent = text || '';
+    el.className = 'admin-msg ' + (ok ? 'ok' : 'err');
+  }
+  function headers() {
+    return { 'Content-Type': 'application/json', 'x-admin-token': token() };
+  }
+
+  function esc(s) {
+    return String(s || '').replace(/[&<>"']/g, function (c) {
+      return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c];
+    });
+  }
+
+  function render(list) {
+    var tb = $('licenseRows');
+    if (!list || !list.length) {
+      tb.innerHTML = '<tr><td colspan="5">Nenhuma licença ainda.</td></tr>';
+      return;
+    }
+    tb.innerHTML = list.map(function (l) {
+      var st = l.status === 'active'
+        ? '<span class="admin-status on">ativo</span>'
+        : '<span class="admin-status off">' + esc(l.status) + '</span>';
+      return '<tr>' +
+        '<td><b>' + esc(l.email) + '</b><br><span style="color:#707070">' + esc(l.name) + '</span></td>' +
+        '<td><code>' + esc(l.accessKey) + '</code></td>' +
+        '<td>' + st + '</td>' +
+        '<td style="font-size:.75rem;word-break:break-all">' + esc(l.orderId || '—') + '</td>' +
+        '<td class="admin-actions">' +
+          '<button class="btn btn-ghost" data-copy="' + esc(l.accessKey) + '" type="button">Copiar chave</button>' +
+          '<button class="btn btn-ghost" data-resend="' + esc(l.email) + '" type="button">Reenviar</button>' +
+          (l.status === 'active'
+            ? '<button class="btn btn-ghost" data-revoke="' + esc(l.email) + '" type="button">Revogar</button>'
+            : '') +
+        '</td></tr>';
+    }).join('');
+  }
+
+  function load() {
+    if (!token()) { msg('Informe o token admin.', false); return; }
+    try { localStorage.setItem(TOKEN_KEY, token()); } catch (e) {}
+    fetch('/api/admin/licenses', { headers: headers() })
+      .then(function (r) { return r.json().then(function (d) { return { r: r, d: d }; }); })
+      .then(function (x) {
+        if (!x.d.ok) { msg(x.d.error || 'Falha ao carregar', false); return; }
+        msg(x.d.licenses.length + ' licença(s) carregada(s).', true);
+        render(x.d.licenses);
+      })
+      .catch(function () { msg('Servidor indisponível.', false); });
+  }
+
+  $('btnLoad').addEventListener('click', load);
+  $('btnCreate').addEventListener('click', function () {
+    if (!token()) { msg('Informe o token admin.', false); return; }
+    fetch('/api/admin/licenses', {
+      method: 'POST',
+      headers: headers(),
+      body: JSON.stringify({ email: $('newEmail').value, name: $('newName').value })
+    })
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        if (!d.ok) { msg(d.error || 'Erro ao criar', false); return; }
+        msg('Chave gerada: ' + d.license.accessKey + (d.emailSent ? ' (e-mail enviado)' : ' (envie manualmente)'), true);
+        $('newEmail').value = '';
+        $('newName').value = '';
+        load();
+      })
+      .catch(function () { msg('Servidor indisponível.', false); });
+  });
+
+  $('licenseRows').addEventListener('click', function (ev) {
+    var t = ev.target;
+    if (t.dataset.copy) {
+      navigator.clipboard.writeText(t.dataset.copy).then(function () {
+        msg('Chave copiada.', true);
+      });
+      return;
+    }
+    if (t.dataset.resend) {
+      fetch('/api/admin/resend', {
+        method: 'POST',
+        headers: headers(),
+        body: JSON.stringify({ email: t.dataset.resend })
+      }).then(function (r) { return r.json(); }).then(function (d) {
+        if (!d.ok) { msg(d.error || 'Falha', false); return; }
+        msg(d.emailSent ? 'E-mail reenviado.' : ('SMTP off — chave: ' + d.accessKey), true);
+      });
+      return;
+    }
+    if (t.dataset.revoke) {
+      if (!confirm('Revogar acesso de ' + t.dataset.revoke + '?')) return;
+      fetch('/api/admin/revoke', {
+        method: 'POST',
+        headers: headers(),
+        body: JSON.stringify({ email: t.dataset.revoke })
+      }).then(function (r) { return r.json(); }).then(function (d) {
+        if (!d.ok) { msg(d.error || 'Falha', false); return; }
+        msg('Acesso revogado.', true);
+        load();
+      });
+    }
+  });
+
+  try {
+    var saved = localStorage.getItem(TOKEN_KEY);
+    if (saved) $('adminToken').value = saved;
+  } catch (e) {}
+})();
+</script>
+</body>
+</html>

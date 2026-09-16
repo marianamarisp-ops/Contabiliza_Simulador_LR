@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 180" role="img" aria-label="Contabiliza">
+  <defs>
+    <style>
+      .w { font-family: Arial, Helvetica, sans-serif; font-weight: 800; font-size: 54px; fill: #5c0a0a; }
+    </style>
+  </defs>
+  <!-- C preenchido (anel aberto) — com folga nas bordas do viewBox -->
+  <path fill="#5c0a0a" d="M128 28c-42 0-78 34-78 76s36 76 78 76c22 0 42-8 56-22l-16-16c-10 10-24 16-40 16-30 0-54-24-54-54s24-54 54-54c16 0 30 6 40 16l16-16c-14-14-34-22-56-22z"/>
+  <!-- check em teal Contabiliza (não usa o dourado Fiscal Code) -->
+  <path fill="none" stroke="#21867a" stroke-width="14" stroke-linecap="round" stroke-linejoin="round"
+        d="M88 88l20 20 44-48"/>
+  <!-- wordmark -->
+  <text class="w" x="188" y="102">Contabiliza</text>
+  <rect x="190" y="118" width="340" height="5" rx="2.5" fill="#21867a"/>
+</svg>

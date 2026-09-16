@@ -1,0 +1,848 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Veja o impacto da Reforma | Lucro Real | Contabiliza simulador - LR</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;600;700;800&display=swap" rel="stylesheet">
+<link rel="icon" type="image/svg+xml" href="logo-contabiliza.svg">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<!-- Gate de acesso (e-mail + chave liberada pela Cakto) -->
+<div id="authGate" class="auth-gate">
+  <div class="auth-card">
+    <img class="auth-logo" alt="Contabiliza" src="logo-contabiliza.svg">
+    <h1>Acesso ao simulador</h1>
+    <p class="auth-lead">Entre com o <b>mesmo e-mail da compra na Cakto</b> e a <b>chave de acesso</b> enviada após o pagamento.</p>
+    <form id="authForm" class="auth-form" autocomplete="on">
+      <label for="authEmail">E-mail</label>
+      <input id="authEmail" name="email" type="email" required placeholder="voce@empresa.com" autocomplete="username">
+      <label for="authKey">Chave de acesso</label>
+      <input id="authKey" name="accessKey" type="text" required placeholder="CONT-XXXX-XXXX-XXXX" autocomplete="current-password" spellcheck="false">
+      <div id="authError" class="auth-error" hidden></div>
+      <button id="authSubmit" class="btn btn-primary auth-submit" type="submit">Entrar</button>
+    </form>
+    <p class="auth-help">Pagou e ainda não recebeu a chave? Fale com o suporte Contabiliza.</p>
+  </div>
+</div>
+
+<div id="appRoot" class="wrap" hidden>
+
+  <div class="top">
+    <img class="logo-fc" alt="Contabiliza" src="logo-contabiliza.svg">
+    <div class="auth-bar">
+      <span id="authUserChip" class="auth-chip" hidden></span>
+      <button id="authLogout" class="btn btn-ghost auth-logout" type="button">Sair</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="head">
+      <span class="tag">SIMULADOR TRIBUTÁRIO · LUCRO REAL</span>
+      <h1>Veja o impacto da <span class="hl">Reforma</span> na sua empresa</h1>
+      <p>Compare a carga atual com IBS e CBS de 2027 a 2033 — em minutos.</p>
+    </div>
+
+    <div class="body">
+
+      <div class="intro">
+        <div class="intro-t">Segurança, economia e tranquilidade</div>
+        <ul>
+          <li><b>Clareza:</b> projeta IBS, CBS, remanescentes e Imposto Seletivo frente à carga que você informar.</li>
+          <li><b>Decisão rápida:</b> veja a diferença mensal, anual e o cenário até 2033.</li>
+          <li><b>Pronto para o cliente:</b> gere relatório em tela e salve em PDF pelo navegador.</li>
+        </ul>
+        <p class="intro-cta">Não substitui a apuração fiscal da empresa (Lucro Real, ECF ou LALUR).</p>
+      </div>
+
+      <div class="workspace">
+        <div class="ws-head">Meus Clientes Aqui</div>
+        <div class="ws-row">
+          <div class="ws-field">
+            <label for="clientName">Cliente (empresa)</label>
+            <input id="clientName" type="text" placeholder="Ex.: Papelaria Alegria Ltda" autocomplete="off">
+          </div>
+          <div class="ws-field">
+            <label for="clientList">Carregar cliente salvo</label>
+            <select id="clientList" class="sel"><option value="">Nenhum salvo</option></select>
+          </div>
+          <button class="btn btn-primary" id="saveClient" type="button">Salvar</button>
+          <button class="btn btn-ghost" id="delClient" type="button">Apagar</button>
+        </div>
+        <div class="ws-msg" id="wsMsg"></div>
+      </div>
+
+      <div class="yearbox">
+        <label for="ano">Simular o ano de:</label>
+        <select id="ano">
+          <option value="2027">2027</option>
+          <option value="2028">2028</option>
+          <option value="2029">2029</option>
+          <option value="2030">2030</option>
+          <option value="2031">2031</option>
+          <option value="2032">2032</option>
+          <option value="2033">2033 (sistema completo)</option>
+        </select>
+        <span class="year-note" id="yearNote"></span>
+      </div>
+
+      <div class="sect-title"><span class="num">1</span> Dados da empresa</div>
+      <div class="grid">
+        <div class="field">
+          <label for="cnpj">CNPJ <span class="hint">opcional</span></label>
+          <input id="cnpj" type="text" placeholder="00.000.000/0000-00" autocomplete="off" maxlength="18" spellcheck="false">
+          <div class="help">Com os 14 dígitos completos, a razão social é obtida nos dados públicos da Receita Federal e preenchida automaticamente no nome da empresa.</div>
+          <div class="help cnpj-status" id="cnpjStatus" hidden></div>
+        </div>
+        <div class="field">
+          <label for="empresa">Nome da empresa</label>
+          <input id="empresa" type="text" placeholder="Ex.: Papelaria Alegria Ltda" autocomplete="off">
+          <div class="help">Exibido no topo do relatório gerado.</div>
+        </div>
+        <div class="field">
+          <label for="segmento">Segmento principal</label>
+          <select id="segmento" class="sel">
+            <option value="comercio">Comércio</option>
+            <option value="industria">Indústria</option>
+            <option value="servicos">Serviços</option>
+            <option value="transporte">Transporte</option>
+          </select>
+          <div class="help">Organiza a simulação e decide quais campos ficam visíveis por padrão. Isso não impede a empresa de ter operações de outros tipos.</div>
+        </div>
+        <div class="field">
+          <label>Mostrar todos os tributos atuais</label>
+          <label class="chk" style="margin-top:10px"><input type="checkbox" id="forcarTodos"> Exibir ICMS, ISS e IPI mesmo fora do segmento</label>
+          <div class="help">Ative se a empresa combina atividades de mais de um segmento.</div>
+        </div>
+      </div>
+
+      <div class="sect-title"><span class="num">2</span> Operação — médias mensais</div>
+      <div class="grid">
+        <div class="field">
+          <label>Faturamento médio mensal</label>
+          <div class="inp"><span class="pre">R$</span><input id="faturamento" class="has-pre" type="text" value="" placeholder="0,00" inputmode="decimal"></div>
+          <div class="help">Média mensal da receita bruta. É o ponto de partida para projetar os débitos de IBS/CBS na simulação.</div>
+        </div>
+        <div class="field">
+          <label>Compras e insumos médios mensais</label>
+          <div class="inp"><span class="pre">R$</span><input id="compras" class="has-pre" type="text" value="" placeholder="0,00" inputmode="decimal"></div>
+          <div class="help">Digite a estimativa mensal da base das aquisições e insumos usada na projeção de créditos. O simulador não remonta, nota a nota, a base fiscal de cada documento.</div>
+        </div>
+        <div class="field">
+          <label>Quanto das compras gera crédito <span class="hint">estimativa</span></label>
+          <div class="inp"><input id="pctCreditavel" class="has-suf" type="number" value="80" step="5" min="0" max="100" inputmode="decimal"><span class="suf">%</span></div>
+          <div class="help">Parcela das compras que, na prática, deve gerar aproveitamento de crédito de IBS/CBS nesta estimativa.</div>
+          <details class="ajuda-mais"><summary>Como estimar este percentual</summary>
+            <div class="help">Compras de fornecedores do regime regular tendem a gerar crédito na medida do tributo incidente. Compras de optantes pelo Simples Nacional também podem gerar crédito, porém limitado ao IBS/CBS devido por esse fornecedor no regime — não use a alíquota cheia nesses casos.</div>
+            <div class="help" style="margin-top:6px">Ao montar o percentual, desconte aquisições sem incidência, isentas, imunes, com alíquota zero ou outras situações sem crédito para o adquirente. Créditos presumidos específicos existem, mas não entram automaticamente neste modo simplificado.</div>
+          </details>
+          <button type="button" class="modo-link" id="toggleCompras" style="margin:8px 0 0 -6px">Detalhar compras e créditos</button>
+        </div>
+
+        <div class="field full hidden" id="comprasDetalhadas">
+          <div class="box">
+            <div class="box-h">Modo avançado de compras <span class="st st-USER_INPUT" id="tagModoCompras">Detalhado</span></div>
+            <div class="box-s">
+              Abra esta área só quando quiser mais precisão. Classifique as aquisições pelo tratamento do crédito.
+              Sem o detalhamento, a estimativa percentual acima continua valendo.<br><br>
+              Em cada grupo, informe a <b>base estimada da aquisição</b> usada na simulação. IBS e CBS não entram
+              na própria base; esta versão não transforma automaticamente o valor da nota em base fiscal.
+            </div>
+            <div id="cmpLista"></div>
+            <button class="addbtn" id="cmpAdd" type="button">+ Adicionar grupo de compras</button>
+            <div class="tot-soft"><span>Compras classificadas</span><span id="cmpTot">R$ 0,00</span></div>
+            <div class="tot-soft" id="cmpNaoClassBox"><span>Compras ainda não classificadas</span><span id="cmpNaoClass">R$ 0,00</span></div>
+            <div class="tot-warn" id="cmpWarn"></div>
+          </div>
+        </div>
+
+        <div class="field" id="f_pctExportacao">
+          <label>Exportações</label>
+          <div class="inp"><input id="pctExportacao" class="has-suf" type="number" value="0" step="5" min="0" max="100" inputmode="decimal"><span class="suf">%</span></div>
+          <div class="help">Fatia do faturamento vendida ao exterior. Nessas operações o simulador não gera débito de IBS/CBS e mantém os créditos segundo as regras adotadas.</div>
+          <div class="aviso-inativo hidden" id="avisoExportacao">No modo detalhado, as exportações são identificadas diretamente nas linhas de receita.</div>
+        </div>
+
+        <div class="field full">
+          <div class="infobox">
+            <div class="infobox-h">Informações adicionais <span class="st st-USER_INPUT">Não altera o cálculo</span></div>
+            <div class="infobox-b">
+              <label for="pctB2B">Vendas para empresas (B2B)</label>
+              <div class="inp" style="max-width:190px"><input id="pctB2B" class="has-suf" type="number" value="60" step="5" min="0" max="100" inputmode="decimal"><span class="suf">%</span></div>
+              <div class="help">Dado apenas ilustrativo: não entra no cálculo do tributo. Mostra quanto do IBS/CBS destacado tende a se tornar crédito no cliente da empresa.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="sect-title"><span class="num">3</span> Tributos atuais sobre consumo</div>
+      <div class="sect-sub">Preencha a média mensal realmente paga. Se preferir, use <b>“Usar alíquota”</b> para projetar por base × alíquota.</div>
+      <div style="margin:-6px 0 14px"><button type="button" class="modo-link" id="toggleAtualDetalhado" style="margin-left:-6px">Detalhar faturamento atual e tributos por operação</button></div>
+
+      <div class="field full hidden" id="unificadoBox">
+        <div class="box">
+          <div class="box-h">Receitas e tratamentos por operação <span class="st st-USER_INPUT">Substitui os valores gerais</span></div>
+          <div class="box-s">
+            Monte a composição do faturamento em uma só tabela. Em cada linha, digite os tributos atuais da
+            operação e o tratamento de IBS/CBS previsto na Reforma.
+          </div>
+          <div class="uni-nota">
+            As classificações seguem <b>a cargo de quem preenche</b>. O simulador não infere tratamento da Reforma
+            a partir dos valores atuais: ICMS zero hoje não implica redução, isenção ou alíquota zero de IBS/CBS.
+            A soma do faturamento das linhas deve coincidir com o total informado na seção 2.
+          </div>
+          <div id="uniLista"></div>
+          <button class="addbtn" id="uniAdd" type="button">+ Adicionar operação</button>
+          <div id="uniTotais"></div>
+          <div class="tot-warn" id="uniWarn"></div>
+        </div>
+      </div>
+
+      <div class="field full hidden" id="consolidaBox">
+        <div class="cons-box">
+          <div class="cons-h">Consolidar detalhamento no modelo unificado</div>
+          <div class="box-s" style="margin-bottom:10px">
+            As linhas da situação atual vieram para este rascunho porque pertencem de forma inequívoca a essa lista.
+            O <b>tratamento de IBS/CBS não foi presumido</b>: escolha o de cada operação. Os tratamentos do modelo
+            anterior aparecem abaixo só como referência.
+          </div>
+          <div id="consRef"></div>
+          <div id="consLista"></div>
+          <button class="addbtn" id="consAdd" type="button">+ Adicionar operação ao rascunho</button>
+          <div id="consTotais"></div>
+          <div class="tot-warn" id="consWarn"></div>
+          <div class="cons-acts">
+            <button class="btn btn-primary" id="consConfirmar" type="button">Confirmar consolidação</button>
+            <button class="btn btn-ghost" id="consCancelar" type="button">Cancelar</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="field full hidden" id="atualDetalhadoBox">
+        <div class="box">
+          <div class="box-h">Modo detalhado da situação atual <span class="st st-USER_INPUT">Modelo anterior — separado</span></div>
+          <div class="legado-nota" id="legadoNota">
+            <b>Este cliente foi salvo usando o modelo anterior de detalhamento separado.</b>
+            O cálculo continua preservado. Para utilizar a nova tabela unificada, revise e consolide as operações.
+            <br><button class="btn btn-primary" id="abrirConsolidacao" type="button">Consolidar detalhamento</button>
+          </div>
+          <div class="box-s">
+            Divida o faturamento atual em linhas e diga quanto de PIS/Cofins, ICMS, ISS e IPI cabe a cada
+            operação. No modo detalhado, a soma dessas linhas substitui os valores gerais da situação atual no cálculo.
+          </div>
+          <details class="ajuda-mais" style="margin-bottom:12px">
+            <summary>Por que esta tabela continua separada dos tratamentos da Reforma?</summary>
+            <div class="help">Este é o modelo legado, mantido para que clientes salvos antes da unificação
+            continuem com o mesmo resultado. Nada é convertido sozinho, porque não há como saber qual linha
+            da situação atual corresponde a qual tratamento da Reforma. Use
+            <b>Consolidar detalhamento</b> para revisar as operações e migrar à tabela unificada.</div>
+          </details>
+          <div class="table-hint">Deslize a área para o lado para ver todas as colunas.</div>
+          <div class="table-scroll">
+            <div class="rat-wrap">
+              <div class="rat-head">
+                <span>Descrição</span><span>Natureza</span><span>Faturamento</span><span>PIS/Cofins</span>
+                <span>ICMS</span><span>ISS</span><span>IPI</span><span></span>
+              </div>
+              <div id="ratLista"></div>
+            </div>
+          </div>
+          <button class="addbtn" id="ratAdd" type="button">+ Adicionar linha de receita atual</button>
+          <div class="tot-soft"><span>Faturamento detalhado</span><span id="ratTotFat">R$ 0,00</span></div>
+          <div class="tot-soft" id="ratTotTrib"><span>Tributos atuais somados</span><span>R$ 0,00</span></div>
+          <div class="tot-warn" id="ratWarn"></div>
+        </div>
+      </div>
+      <div class="grid">
+
+        <div class="field" id="f_pisCofins">
+          <label>PIS e Cofins <button type="button" class="modo-link" id="modo_pisCofins" data-trib="pisCofins">Usar alíquota para PIS e Cofins</button></label>
+          <div class="modo-value" id="v_pisCofins">
+            <div class="dupla">
+              <div class="dupla-c">
+                <span class="rate-l">PIS</span>
+                <div class="inp"><span class="pre">R$</span><input id="atualPis" class="has-pre" type="text" value="" placeholder="0,00" inputmode="decimal"></div>
+                <div class="help">Média mensal de PIS realmente paga, já refletindo a realidade de créditos da empresa.</div>
+              </div>
+              <div class="dupla-c">
+                <span class="rate-l">Cofins</span>
+                <div class="inp"><span class="pre">R$</span><input id="atualCofins" class="has-pre" type="text" value="" placeholder="0,00" inputmode="decimal"></div>
+                <div class="help">Média mensal de Cofins realmente paga, já refletindo a realidade de créditos da empresa.</div>
+              </div>
+            </div>
+            <div class="soma-tot" id="pcSoma"></div>
+            <div class="legado-nota hidden" id="pcLegado">
+              <b>Este cliente foi salvo anteriormente com PIS e Cofins em valor combinado de <span id="pcLegadoRef">R$ 0,00</span>.</b>
+              Para continuar, informe acima quanto corresponde ao PIS e quanto corresponde à Cofins.
+              O simulador não realiza essa divisão automaticamente.
+              <div class="legado-val">Valor combinado anterior, mantido apenas como referência
+                <div class="inp"><span class="pre">R$</span><input id="atualPisCofins" class="has-pre ref-only" type="text" value="" inputmode="decimal" readonly tabindex="-1" aria-readonly="true"></div>
+              </div>
+              <div class="mig-conf" id="pcConf"></div>
+              <label class="chk mig-aceite hidden" id="pcAceiteBox"><input type="checkbox" id="pcAceite"> Confirmo que a alteração do total é intencional</label>
+              <button class="btn btn-primary" id="pcConfirmar" type="button">Confirmar separação de PIS e Cofins</button>
+            </div>
+          </div>
+          <div class="modo-rate hidden" id="r_pisCofins">
+            <div class="rate-grp">
+              <div class="rate-t">PIS</div>
+              <div class="rate-row">
+                <div><span class="rate-l">Base mensal</span><div class="inp"><span class="pre">R$</span><input id="pisBase" class="has-pre" type="text" value="" placeholder="0,00"   inputmode="decimal"></div></div>
+                <div><span class="rate-l">Alíquota <span class="st st-USER_REQUIRED" id="tagPis">Sem premissa cadastrada</span></span><div class="inp"><input id="pisAliq" class="has-suf" type="number" placeholder="0,00" step="0.01" min="0" max="100" inputmode="decimal"><span class="suf">%</span></div></div>
+              </div>
+            </div>
+            <div class="rate-grp">
+              <div class="rate-t">Cofins</div>
+              <div class="rate-row">
+                <div><span class="rate-l">Base mensal</span><div class="inp"><span class="pre">R$</span><input id="cofinsBase" class="has-pre" type="text" value="" placeholder="0,00"   inputmode="decimal"></div></div>
+                <div><span class="rate-l">Alíquota <span class="st st-USER_REQUIRED" id="tagCofins">Sem premissa cadastrada</span></span><div class="inp"><input id="cofinsAliq" class="has-suf" type="number" placeholder="0,00" step="0.01" min="0" max="100" inputmode="decimal"><span class="suf">%</span></div></div>
+              </div>
+            </div>
+            <div class="rate-out" id="out_pisCofins"></div>
+            <div class="help">Projeção por base × alíquota. <b>Não desconta sozinha os créditos da não cumulatividade.</b></div>
+          </div>
+        </div>
+
+        <div class="field" id="f_icms">
+          <label>ICMS <button type="button" class="modo-link" id="modo_icms" data-trib="icms">Usar alíquota</button></label>
+          <div class="modo-value" id="v_icms">
+            <div class="inp"><span class="pre">R$</span><input id="atualIcms" class="has-pre" type="text" value="" placeholder="0,00"   inputmode="decimal"></div>
+            <div class="help">Média mensal do ICMS próprio realmente pago.</div>
+          </div>
+          <div class="modo-rate hidden" id="r_icms">
+            <div class="rate-row">
+              <div><span class="rate-l">Base média sujeita ao ICMS</span><div class="inp"><span class="pre">R$</span><input id="icmsBase" class="has-pre" type="text" value="" placeholder="0,00"   inputmode="decimal"></div></div>
+              <div><span class="rate-l">Alíquota efetiva utilizada na simulação <span class="st st-USER_REQUIRED" id="tagIcms">Sem premissa cadastrada</span></span><div class="inp"><input id="icmsAliq" class="has-suf" type="number" placeholder="0,00" step="0.01" min="0" max="100" inputmode="decimal"><span class="suf">%</span></div></div>
+            </div>
+            <div class="rate-out" id="out_icms"></div>
+            <div class="help">Projeção por base × alíquota. Use a <b>alíquota efetiva</b> da empresa: o simulador não assume que a alíquota nominal seja a carga real.</div>
+          </div>
+        </div>
+
+        <div class="field" id="f_iss">
+          <label>ISS <button type="button" class="modo-link" id="modo_iss" data-trib="iss">Usar alíquota</button></label>
+          <div class="modo-value" id="v_iss">
+            <div class="inp"><span class="pre">R$</span><input id="atualIss" class="has-pre" type="text" value="" placeholder="0,00"   inputmode="decimal"></div>
+            <div class="help">Média mensal do ISS realmente pago.</div>
+          </div>
+          <div class="modo-rate hidden" id="r_iss">
+            <div class="rate-row">
+              <div><span class="rate-l">Base média sujeita ao ISS</span><div class="inp"><span class="pre">R$</span><input id="issBase" class="has-pre" type="text" value="" placeholder="0,00"   inputmode="decimal"></div></div>
+              <div><span class="rate-l">Alíquota efetiva utilizada na simulação <span class="st st-USER_REQUIRED" id="tagIss">Sem premissa cadastrada</span></span><div class="inp"><input id="issAliq" class="has-suf" type="number" placeholder="0,00" step="0.01" min="0" max="100" inputmode="decimal"><span class="suf">%</span></div></div>
+            </div>
+            <div class="rate-out" id="out_iss"></div>
+            <div class="help">Projeção por base × alíquota. Você pode editar os valores livremente.</div>
+          </div>
+        </div>
+
+        <div class="field" id="f_ipi">
+          <label>IPI <button type="button" class="modo-link" id="modo_ipi" data-trib="ipi">Usar alíquota</button></label>
+          <div class="modo-value" id="v_ipi">
+            <div class="inp"><span class="pre">R$</span><input id="atualIpi" class="has-pre" type="text" value="" placeholder="0,00"   inputmode="decimal"></div>
+            <div class="help">Média mensal do IPI realmente pago.</div>
+          </div>
+          <div class="modo-rate hidden" id="r_ipi">
+            <div class="rate-row">
+              <div><span class="rate-l">Base média sujeita ao IPI</span><div class="inp"><span class="pre">R$</span><input id="ipiBase" class="has-pre" type="text" value="" placeholder="0,00"   inputmode="decimal"></div></div>
+              <div><span class="rate-l">Alíquota efetiva utilizada na simulação <span class="st st-USER_REQUIRED" id="tagIpi">Sem premissa cadastrada</span></span><div class="inp"><input id="ipiAliq" class="has-suf" type="number" placeholder="0,00" step="0.01" min="0" max="100" inputmode="decimal"><span class="suf">%</span></div></div>
+            </div>
+            <div class="rate-out" id="out_ipi"></div>
+            <div class="help">Projeção por base × alíquota. Nesta versão o simulador não identifica NCM nem TIPI.</div>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="sect-title"><span class="num">4</span> Complete a visão da empresa <span class="sect-opt">opcional</span></div>
+      <div class="sect-sub">Esses valores não são recalculados pelo sistema; só completam a comparação de carga.</div>
+      <div class="grid3">
+        <div class="field" id="f_irpjCsll">
+          <label for="irpjPeriodicidade">IRPJ e CSLL <span class="hint">médias apuradas</span></label>
+          <select id="irpjPeriodicidade" class="sel" style="margin-bottom:8px">
+            <option value="MENSAL">Informar média mensal</option>
+            <option value="TRIMESTRAL">Informar média trimestral</option>
+          </select>
+          <div class="dupla">
+            <div class="dupla-c">
+              <span class="rate-l">IRPJ</span>
+              <div class="inp"><span class="pre">R$</span><input id="irpj" class="has-pre" type="text" value="" placeholder="0,00" inputmode="decimal"></div>
+              <div class="conv" id="irpjConv"></div>
+            </div>
+            <div class="dupla-c">
+              <span class="rate-l">CSLL</span>
+              <div class="inp"><span class="pre">R$</span><input id="csll" class="has-pre" type="text" value="" placeholder="0,00" inputmode="decimal"></div>
+              <div class="conv" id="csllConv"></div>
+            </div>
+          </div>
+          <div class="soma-tot" id="irSoma"></div>
+          <div class="help" id="irpjHelp">Médias mensais realmente apuradas. O simulador não calcula IRPJ nem CSLL.</div>
+          <div class="legado-nota hidden" id="irLegado">
+            <b>Valor combinado anteriormente salvo: <span id="irLegadoRef">R$ 0,00</span> <span id="irLegadoPer"></span>.</b>
+            Informe IRPJ e CSLL separadamente para continuar. O simulador não realiza essa divisão automaticamente.
+            <div class="legado-val">Valor combinado anterior, mantido apenas como referência
+              <div class="inp"><span class="pre">R$</span><input id="irpjCsll" class="has-pre ref-only" type="text" value="" inputmode="decimal" readonly tabindex="-1" aria-readonly="true"></div>
+            </div>
+            <div class="mig-conf" id="irConf"></div>
+            <label class="chk mig-aceite hidden" id="irAceiteBox"><input type="checkbox" id="irAceite"> Confirmo que a alteração do total é intencional</label>
+            <button class="btn btn-primary" id="irConfirmar" type="button">Confirmar separação de IRPJ e CSLL</button>
+          </div>
+        </div>
+        <div class="field">
+          <label>Encargos patronais sobre empregados</label>
+          <div class="inp"><span class="pre">R$</span><input id="encargosPatronais" class="has-pre" type="text" value="" placeholder="0,00"   inputmode="decimal"></div>
+          <div class="help">Digite a média mensal dos encargos sobre a folha que entram na análise — por exemplo INSS patronal, RAT, terceiros e demais encargos aplicáveis.</div>
+        </div>
+        <div class="field">
+          <label>Encargos sobre pró-labore</label>
+          <div class="inp"><span class="pre">R$</span><input id="encargosProLabore" class="has-pre" type="text" value="" placeholder="0,00"   inputmode="decimal"></div>
+          <div class="help">Média mensal dos encargos incidentes sobre o pró-labore dos sócios.</div>
+        </div>
+      </div>
+
+      <div class="sect-title"><span class="num">5</span> Casos especiais <span class="sect-opt">opcional</span></div>
+      <div class="sect-sub">A maior parte das empresas pode deixar esta seção em branco. Abra só o que se aplicar.</div>
+
+      <details class="opcional" id="boxReceitas">
+        <summary>
+          <span class="cr">&#9656;</span>
+          <span class="pa-txt">
+            <span class="pa-title">A empresa possui receitas com benefício ou tratamento específico?</span>
+            <span class="pa-sub">Redução de alíquota, alíquota zero, isenção, exportação detalhada ou imunidade.</span>
+          </span>
+        </summary>
+        <div class="op-body">
+        <div class="box">
+        <div class="box-h">Tratamentos de IBS/CBS por linha de receita</div>
+        <div class="box-s">
+          Informe só as receitas que <b>não</b> seguem tributação integral. O restante do faturamento entra
+          automaticamente como integral. <b>As reduções incidem sobre a alíquota, e não sobre a base:</b>
+          redução de 60% equivale a pagar 40% da alíquota do ano.<br><br>
+          Cada tratamento também define o destino dos <b>créditos das aquisições</b>: reduções de alíquota,
+          alíquota zero e exportação <b>preservam</b> os créditos; isenção e imunidade geral geram
+          <b>anulação proporcional</b>. Exportação e imunidade são opções distintas e não devem ser misturadas.
+        </div>
+        <div class="aviso-inativo hidden" id="avisoTratamentosSeparados" style="margin-bottom:10px">No modo detalhado, os tratamentos vêm da tabela "Receitas e tratamentos por operação". As linhas abaixo ficam preservadas, mas não participam do cálculo.</div>
+        <div id="trtLista"></div>
+        <button class="addbtn" id="trtAdd" type="button">+ Adicionar receita com tratamento específico</button>
+        <div class="tot-soft"><span>Receita com tratamento específico informada</span><span id="trtTot">R$ 0,00</span></div>
+        <div class="tot-warn" id="trtWarn"></div>
+      </div>
+        </div>
+      </details>
+
+      <details class="opcional" id="boxIS">
+        <summary>
+          <span class="cr">&#9656;</span>
+          <span class="pa-txt">
+            <span class="pa-title">A empresa possui operações sujeitas ao Imposto Seletivo?</span>
+            <span class="pa-sub">Veículos, embarcações, fumígenos, bebidas, bens minerais e demais hipóteses previstas.</span>
+          </span>
+        </summary>
+        <div class="op-body">
+        <div class="box">
+        <div class="box-s">
+          Por padrão o Imposto Seletivo fica em <b>zero</b> nesta simulação. Não há alíquota geral fixada em norma para
+          os campos abaixo; por isso o simulador não presume nenhum percentual.
+        </div>
+        <label class="chk"><input type="checkbox" id="isSujeita"> Sim, há operações sujeitas ao Imposto Seletivo</label>
+        <div id="isCampos" class="hidden" style="margin-top:14px">
+          <div class="grid">
+            <div class="field">
+              <label>Categoria da operação</label>
+              <select id="isCategoria" class="sel"></select>
+              <div class="help" id="isCatHelp"></div>
+            </div>
+            <div class="field">
+              <label>Base mensal sujeita ao IS</label>
+              <div class="inp"><span class="pre">R$</span><input id="isBase" class="has-pre" type="text" value="" placeholder="0,00"   inputmode="decimal"></div>
+              <div class="help">Média mensal das operações sujeitas ao Imposto Seletivo. Valor digitado por você.</div>
+            </div>
+            <div class="field full">
+              <label>Alíquota do Imposto Seletivo <span class="st st-PENDING_LAW" id="isStatusTag">Pendente de lei</span></label>
+              <label class="chk" style="margin:8px 0 10px"><input type="checkbox" id="isUsarCustom"> Usar alíquota personalizada apenas para esta simulação</label>
+              <div class="inp"><input id="isAliquota" class="has-suf" type="number" value="0" step="0.25" min="0" max="100" inputmode="decimal" disabled><span class="suf">%</span></div>
+              <div class="help" id="isAliqHelp">Enquanto a norma não fixar a alíquota, o Imposto Seletivo permanece em R$ 0,00. Marque a opção acima para testar um percentual hipotético.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+        </div>
+      </details>
+
+      <details class="premissas" id="premissasBox">
+        <summary>
+          <span class="cr">&#9656;</span>
+          <span class="pa-txt">
+            <span class="pa-title">Refinar premissas da Reforma</span>
+            <span class="pa-sub">Para simulações personalizadas de IBS, CBS e transição. O simulador funciona por completo sem abrir esta área.</span>
+          </span>
+        </summary>
+        <div class="pa-body">
+          <div class="prem-sub">Alíquotas da Reforma por ano</div>
+          <div class="prem-scroll">
+            <table class="prem" id="premTabela"></table>
+          </div>
+          <div class="prem-note" id="premNota"></div>
+
+          <div class="prem-sub">Outros parâmetros da simulação</div>
+          <div class="grid">
+            <div class="field">
+              <label>IPI residual / Zona Franca de Manaus</label>
+              <label class="chk" style="margin:6px 0 10px"><input type="checkbox" id="ipiResidualAtivo"> Manter IPI residual a partir de 2027</label>
+              <div class="inp"><span class="pre">R$</span><input id="ipiResidualValor" class="has-pre" type="text" value="" placeholder="0,00"   inputmode="decimal" disabled></div>
+              <div class="help">Valor mensal do IPI que continua devido na hipótese residual/ZFM. Fica desligado por padrão.</div>
+            </div>
+            <div class="field" id="f_reducaoGeral">
+              <label>Tratamento favorecido geral de IBS/CBS <span class="hint">redução aplicada a toda a receita integral</span></label>
+              <div class="inp"><input id="reducaoGeral" class="has-suf" type="number" value="0" step="5" min="0" max="100" inputmode="decimal"><span class="suf">%</span></div>
+              <div class="help">Use só se toda a receita da empresa tiver a mesma redução de alíquota. Reduções por linha ficam na seção 5. A redução incide sobre a alíquota.</div>
+              <div class="aviso-inativo hidden" id="avisoReducaoGeral">No modo detalhado, cada operação tem o próprio tratamento e não existe receita integral residual: esta redução geral não é aplicada.</div>
+            </div>
+          </div>
+
+          <div class="actions" style="margin-top:18px">
+            <button class="btn btn-lr" id="restaurarPremissas" type="button">Restaurar premissas Contabiliza</button>
+            <span class="help" style="margin:0">Restaura o pacote original com data-base de <b id="dataBaseLabel"></b>.</span>
+          </div>
+        </div>
+      </details>
+
+      <div class="bloqueio hidden" id="bloqueio" role="alert" aria-live="assertive">
+        <div class="bloqueio-h">Simulação bloqueada</div>
+        <div class="bloqueio-t" id="bloqueioMsg"></div>
+        <div class="bloqueio-d" id="bloqueioDet"></div>
+      </div>
+
+      <div class="sect-title"><span class="num">6</span> Dados do escritório <span class="sect-opt">aparecem no relatório</span></div>
+      <div class="sect-sub">Preenchidos uma vez e reutilizados em todos os clientes deste navegador.</div>
+
+      <details class="opcional" id="boxEscritorio">
+        <summary>
+          <span class="cr">&#9656;</span>
+          <span class="pa-txt">
+            <span class="pa-title">Identificação do escritório no relatório</span>
+            <span class="pa-sub" id="escResumo">Logomarca, nome, CNPJ e registro profissional (CRC, OAB ou equivalente).</span>
+          </span>
+        </summary>
+        <div class="op-body">
+          <div class="grid">
+            <div class="field">
+              <label>Nome do escritório ou profissional</label>
+              <input id="escNome" type="text" placeholder="Ex.: Contabilidade Silva &amp; Associados" autocomplete="off">
+              <div class="help">Vira o título do relatório entregue ao cliente.</div>
+            </div>
+            <div class="field">
+              <label>CNPJ do escritório <span class="hint">opcional</span></label>
+              <input id="escCnpj" type="text" placeholder="00.000.000/0000-00" autocomplete="off" maxlength="18" spellcheck="false">
+              <div class="help">Serve só para identificação no relatório.</div>
+            </div>
+            <div class="field">
+              <label>Registro profissional <span class="hint">opcional</span></label>
+              <input id="escRegistro" type="text" placeholder="Ex.: CRC 1SP123456/O-4 ou OAB/SP 123.456" autocomplete="off">
+              <div class="help">CRC, OAB ou outro registro que você queira mostrar.</div>
+            </div>
+            <div class="field">
+              <label>Contato <span class="hint">opcional</span></label>
+              <input id="escContato" type="text" placeholder="Ex.: (11) 3000-0000 · contato@escritorio.com.br" autocomplete="off">
+              <div class="help">Telefone, e-mail ou endereço do site.</div>
+            </div>
+            <div class="field full">
+              <label>Logomarca <span class="hint">opcional</span></label>
+              <div class="logo-row">
+                <div class="logo-prev" id="escLogoPrev"><span>Sem logomarca</span></div>
+                <div class="logo-acts">
+                  <input type="file" id="escLogoFile" accept="image/png,image/jpeg,image/webp,image/svg+xml" style="display:none">
+                  <button class="btn btn-ghost" id="escLogoBtn" type="button">Escolher imagem</button>
+                  <button class="btn btn-ghost" id="escLogoDel" type="button">Remover</button>
+                  <div class="logo-size">
+                    <label for="escLogoEscala">Tamanho no relatório</label>
+                    <input type="range" id="escLogoEscala" min="60" max="160" step="5" value="100">
+                    <span class="val" id="escLogoEscalaVal">100%</span>
+                  </div>
+                  <div class="help">PNG, JPG, WEBP ou SVG. A imagem é compactada antes de ser salva no navegador.</div>
+                  <div class="logo-msg" id="escLogoMsg"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="ws-msg" id="escMsg"></div>
+        </div>
+      </details>
+
+      <div class="acao-principal">
+        <button class="btn btn-lr btn-big" id="simular" type="button">Simular agora</button>
+        <div class="acao-nota">Depois você revisa números, premissas e pode gerar o relatório.</div>
+        <div class="acao-sec">
+          <button class="btn btn-ghost" id="limpar" type="button">Limpar para novo cliente</button>
+          <button class="btn btn-ghost" id="exemplo" type="button">Restaurar exemplo</button>
+        </div>
+      </div>
+
+      <div id="resultado">
+
+        <div class="sect-title" style="margin-top:30px"><span class="num">A</span> Impacto sobre os tributos de consumo</div>
+        <div class="ano-res">
+          <label for="anoResultado">Ano analisado</label>
+          <select id="anoResultado" class="sel">
+            <option value="2027">2027</option><option value="2028">2028</option>
+            <option value="2029">2029</option><option value="2030">2030</option>
+            <option value="2031">2031</option><option value="2032">2032</option>
+            <option value="2033">2033</option>
+          </select>
+          <span class="ano-res-n">Troque o ano para comparar a transição sem sair desta área.</span>
+        </div>
+
+        <div class="exec" id="rExec"></div>
+
+        <div class="compare">
+          <div class="cbox" id="cxMes"><div class="k">Diferença mensal</div><div class="val" id="rDifMes">R$ 0,00</div><small>Cenário Reforma menos situação atual</small></div>
+          <div class="cbox" id="cxAno"><div class="k">Diferença anual</div><div class="val" id="rDifAno">R$ 0,00</div><small>Projeção de 12 meses</small></div>
+          <div class="cbox" id="cxPct"><div class="k">Diferença percentual</div><div class="val" id="rDifPct">0,0%</div><small>Sobre a carga atual de consumo</small></div>
+        </div>
+
+        <div class="results">
+          <div class="rescard hero-atual">
+            <div class="rc-head">
+              <div class="rc-label">Situação atual · média mensal</div>
+              <div class="rc-value" id="rAtualTot">R$ 0,00</div>
+              <div class="rc-sub" id="rAtualSub">Valores informados por você como média histórica</div>
+            </div>
+            <div class="rc-body" id="rAtualBody"></div>
+          </div>
+          <div class="rescard hero-ref">
+            <div class="rc-head">
+              <div class="rc-label">Cenário Reforma · <span id="rAnoLabel">2027</span></div>
+              <div class="rc-value" id="rRefTot">R$ 0,00</div>
+              <div class="rc-sub" id="rRefSub">Projeção com as premissas desta simulação</div>
+            </div>
+            <div class="rc-body" id="rRefBody"></div>
+          </div>
+        </div>
+
+        <details class="vercalc"><summary>Ver cálculos da situação atual e do cenário Reforma</summary><div class="vc-body" id="rMemoAtual"></div></details>
+        <div id="rAtualDetalhe"></div>
+
+        <div class="panel">
+          <div class="panel-h">B · Carga sobre o faturamento</div>
+          <div id="rCarga"></div>
+          <details class="vercalc"><summary>Ver como esses totais foram formados</summary><div class="vc-body" id="rCargaMemo"></div></details>
+          <div class="panel-note" id="rCargaNota"></div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-h">C · Visão completa considerada</div>
+          <div id="rVisaoCompleta"></div>
+          <div class="panel-note">
+            IRPJ, CSLL, encargos patronais e encargos de pró-labore são <b>médias históricas informadas por você</b> e
+            são repetidas sem alteração em todos os anos. A Reforma Tributária não recalcula esses valores nesta ferramenta.
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-h">D · Detalhamento do IBS/CBS</div>
+          <div id="rCreditos"></div>
+          <div class="panel-note" id="rCreditosNota"></div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-h">E · Evolução estimada da carga — 2027 a 2033</div>
+          <div class="transition">
+            <table class="trans" id="rTrajetoria"></table>
+          </div>
+          <div id="rGrafico" style="margin-top:18px"></div>
+          <div class="legend">
+            <span><i style="background:#1a1a1a"></i>Carga atual de consumo (referência)</span>
+            <span><i style="background:#5c0a0a"></i>Consumo no cenário Reforma</span>
+            <span><i style="background:#21867a"></i>Carga completa considerada</span>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-h">Premissas utilizadas nesta simulação</div>
+          <div class="prem-scroll">
+            <table class="prem" id="rPremissas"></table>
+          </div>
+          <div class="panel-note">
+            Cada linha indica a origem do número: <b>Definido em norma</b>, <b>Estimativa atual</b>, <b>Projeção</b>,
+            <b>Personalizado</b>, <b>Pendente de lei</b>, <b>Informado por você</b> ou <b>Média histórica</b>.
+          </div>
+        </div>
+
+        <div class="genbar genbar-2" style="margin-top:22px">
+          <div>
+            <div class="genbar-t">Relatório para o cliente</div>
+            <div class="genbar-s">Gere em tela, confira e imprima ou salve em PDF pelo navegador.
+            Os relatórios usam o <b>ano selecionado no resultado</b>.</div>
+          </div>
+          <div class="genbar-btns">
+            <div class="genbar-op">
+              <button class="btn btn-navy" id="gerarRepresentativo" type="button">Relatório executivo</button>
+              <span class="genbar-h">Resumo direto para apresentar ao cliente.</span>
+            </div>
+            <div class="genbar-op">
+              <button class="btn btn-navy" id="gerarCalculos" type="button">Relatório com cálculos</button>
+              <span class="genbar-h">Versão técnica com memória e premissas.</span>
+            </div>
+            <div class="genbar-op">
+              <button class="btn btn-navy" id="gerarCompleto" type="button">Relatório completo 2027–2033</button>
+              <span class="genbar-h">Toda a transição, ano a ano.</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="note">
+        <span class="nh">Como ler estes números</span>
+        Esta é uma simulação para apoiar a conversa com o cliente. Não substitui apuração, escrituração nem análise específica das operações.
+      </div>
+
+      <div class="disc" id="discFontes"></div>
+    </div>
+  </div>
+
+  <div class="aviso-versao" role="note">
+    <span class="av-i" aria-hidden="true">i</span>
+    <span>Ferramenta em evolução: premissas e recursos podem ser atualizados conforme a Reforma avança.</span>
+  </div>
+
+  <div class="foot">Contabiliza · Lucro Real · Foque no negócio. A gente ajuda no fiscal.</div>
+
+  <div id="reportBar">
+    <button class="btn btn-lr" id="rp_print" type="button">Imprimir / Salvar PDF</button>
+    <button class="btn btn-ghost" id="rp_back" type="button" style="background:#fff">Voltar ao simulador</button>
+  </div>
+
+  <div id="report">
+    <div class="rp-head">
+      <div class="rp-headtop">
+        <div class="rp-headtxt">
+      <span class="rp-badge">SIMULADOR TRIBUTÁRIO · LUCRO REAL</span>
+      <div class="rp-esc" id="rp_esc">Contabiliza</div>
+      <div class="rp-escinfo" id="rp_escinfo"></div>
+      <div class="rp-sub">Impacto da Reforma — Lucro Real</div>
+        </div>
+        <div class="rp-logo" id="rp_logo"></div>
+      </div>
+      <div class="rp-tipo" id="rp_tipo"></div>
+      <div class="rp-meta">
+        <span><b>Cliente:</b> <span id="rp_cliente">-</span></span>
+        <span><b>CNPJ:</b> <span id="rp_cnpj">-</span></span>
+        <span><b>Segmento principal:</b> <span id="rp_seg">-</span></span>
+        <span><b>Ano analisado:</b> <span id="rp_ano">-</span></span>
+        <span><b>Data:</b> <span id="rp_data">-</span></span>
+      </div>
+    </div>
+    <!-- RESUMO EXECUTIVO — compartilhado pelos dois relatórios -->
+    <div class="rp-exec" id="rp_exec"></div>
+    <div class="rp-kpis" id="rp_kpis"></div>
+
+    <!-- ============ CORPO A · RELATÓRIO REPRESENTATIVO (montado por JS) ============ -->
+    <div id="rp_rep"></div>
+
+    <!-- ============ CORPO C · RELATÓRIO COMPLETO 2027–2033 (montado por JS) ============ -->
+    <div id="rp_full"></div>
+
+    <!-- ============ CORPO B · RELATÓRIO COM CÁLCULOS ============ -->
+    <div id="rp_calc">
+
+      <!-- 2. carga tributária sobre o faturamento -->
+      <div class="rp-panel">
+        <div class="rp-ph">Carga tributária sobre o faturamento</div>
+        <div id="rp_carga"></div>
+        <div class="rp-foot" style="margin-top:12px" id="rp_cargaNota"></div>
+      </div>
+      <div class="rp-panel">
+        <div class="rp-ph">Memória da carga tributária</div>
+        <div id="rp_cargaMemo"></div>
+      </div>
+
+      <!-- 3. formação da situação atual -->
+      <div class="rp-sec">Formação da situação atual</div>
+      <div class="rp-panel">
+        <div class="rp-ph">Tributos sobre consumo — situação atual</div>
+        <div class="table-scroll"><table class="rp-tab" id="rp_atual"></table></div>
+      </div>
+      <div class="rp-panel">
+        <div class="rp-ph">Como cada tributo atual foi informado</div>
+        <div id="rp_atualMemo"></div>
+      </div>
+
+      <!-- 4. operações / receitas -->
+      <div class="rp-sec">Operações e receitas informadas</div>
+      <div id="rp_operacoes"></div>
+      <div class="rp-panel">
+        <div class="rp-ph">Receitas com tratamento específico consideradas</div>
+        <div class="table-scroll"><table class="rp-tab" id="rp_beneficios"></table></div>
+      </div>
+
+      <!-- 5. formação do cenário Reforma -->
+      <div class="rp-sec">Formação do cenário Reforma</div>
+      <div class="rp-panel">
+        <div class="rp-ph">Tributos sobre consumo — cenário Reforma</div>
+        <div class="table-scroll"><table class="rp-tab" id="rp_reforma"></table></div>
+      </div>
+
+      <!-- 6. memória de débito IBS/CBS -->
+      <div class="rp-panel">
+        <div class="rp-ph">Memória de cálculo do débito de IBS e CBS</div>
+        <div id="rp_memoDebito"></div>
+      </div>
+
+      <!-- 7. créditos e estornos -->
+      <div class="rp-sec">Créditos e estornos</div>
+      <div class="rp-panel">
+        <div class="rp-ph">Detalhamento do IBS/CBS</div>
+        <div id="rp_creditos"></div>
+      </div>
+
+      <!-- 8. trajetória -->
+      <div class="rp-sec">Evolução 2027 a 2033</div>
+      <div class="rp-panel">
+        <div class="rp-ph">Evolução estimada da carga — 2027 a 2033</div>
+        <div class="table-scroll"><table class="rp-tab" id="rp_traj"></table></div>
+        <div id="rp_grafico" style="margin-top:16px"></div>
+        <div class="rp-leg" id="rp_legenda"></div>
+      </div>
+
+      <!-- 9. visão completa -->
+      <div class="rp-sec">Visão completa da empresa</div>
+      <div class="rp-panel">
+        <div class="rp-ph">Visão completa considerada</div>
+        <div class="table-scroll"><table class="rp-tab" id="rp_completa"></table></div>
+        <div class="rp-foot" style="margin-top:12px">
+          IRPJ, CSLL, encargos patronais e encargos de pró-labore são médias históricas informadas pelo usuário.
+          Não são recalculados pela Reforma Tributária nem por esta ferramenta.
+        </div>
+      </div>
+      <div class="rp-panel">
+        <div class="rp-ph">Memória dos valores históricos e do Imposto Seletivo</div>
+        <div id="rp_complMemo"></div>
+      </div>
+
+      <!-- 10. premissas -->
+      <div class="rp-sec rp-sec-anexo">Anexo técnico — Premissas utilizadas</div>
+      <div class="rp-panel">
+        <div class="rp-ph">Premissas utilizadas nesta simulação</div>
+        <div class="table-scroll"><table class="rp-tab" id="rp_premissas"></table></div>
+      </div>
+
+      <!-- 11. diagnóstico -->
+      <div class="rp-panel">
+        <div class="rp-ph">Diagnóstico técnico</div>
+        <div class="rp-diag" id="rp_diag"></div>
+      </div>
+    </div>
+
+    <div class="rp-foot" id="rp_foot"></div>
+    <div class="rp-rodape" id="rp_rodape"></div>
+  </div>
+</div>
+
+<script src="auth-gate.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
