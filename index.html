@@ -14,10 +14,28 @@
 
 <!-- Gate de acesso (e-mail + chave liberada pela Cakto) -->
 <div id="authGate" class="auth-gate">
+  <div class="product-page">
+    <section class="product-card" aria-labelledby="productTitle">
+      <img class="product-shot" alt="Contabiliza Simulador Lucro Real" src="contabiliza-simulador-lr-produto.png">
+      <div class="product-info">
+        <span class="product-tag">SIMULADOR TRIBUTÁRIO · LUCRO REAL</span>
+        <h1 id="productTitle">Veja o impacto da <span class="hl">Reforma</span> na sua empresa</h1>
+        <p class="product-lead">Compare a carga atual com IBS e CBS de 2027 a 2033 — em minutos.</p>
+        <ul class="product-benefits">
+          <li><b>Clareza:</b> projeta IBS, CBS, remanescentes e Imposto Seletivo frente à carga que você informar.</li>
+          <li><b>Decisão rápida:</b> veja a diferença mensal, anual e o cenário até 2033.</li>
+          <li><b>Pronto para o cliente:</b> gere relatório em tela e salve em PDF pelo navegador.</li>
+        </ul>
+        <a class="btn btn-lr btn-big product-buy" href="https://pay.cakto.com.br/3adgi57_1114972" target="_blank" rel="noopener noreferrer">Adquirir produto</a>
+        <p class="product-secure">Pagamento seguro pela Cakto. A chave de acesso chega no e-mail da compra.</p>
+      </div>
+    </section>
+
+  <div class="product-access">
   <div id="authLoginCard" class="auth-card">
     <img class="auth-logo" alt="Contabiliza" src="logo-contabiliza.svg">
     <h1>Acesso ao simulador</h1>
-    <p class="auth-lead">Entre com o <b>mesmo e-mail da compra na Cakto</b> e a <b>chave de acesso</b> enviada após o pagamento.</p>
+    <p class="auth-lead">Já comprou? Entre com o <b>mesmo e-mail da compra na Cakto</b> e a <b>chave de acesso</b> enviada após o pagamento.</p>
     <form id="authForm" class="auth-form" autocomplete="on">
       <label for="authEmail">E-mail</label>
       <input id="authEmail" name="email" type="email" required placeholder="voce@empresa.com" autocomplete="username">
@@ -29,6 +47,7 @@
       <div id="authError" class="auth-error" hidden></div>
       <button id="authSubmit" class="btn btn-primary auth-submit" type="submit">Entrar</button>
     </form>
+    <a class="btn btn-lr auth-buy" href="https://pay.cakto.com.br/3adgi57_1114972" target="_blank" rel="noopener noreferrer">Adquirir produto</a>
     <p class="auth-help">Pagou e ainda não recebeu a chave?</p>
     <button id="authContactOpen" class="btn btn-ghost auth-contact-btn" type="button">Fale conosco</button>
   </div>
@@ -56,6 +75,8 @@
       <button id="contactSubmit" class="btn btn-primary auth-submit" type="submit">Enviar mensagem</button>
       <button id="contactBack" class="btn btn-ghost auth-contact-btn" type="button">Voltar ao login</button>
     </form>
+  </div>
+  </div>
   </div>
 </div>
 
