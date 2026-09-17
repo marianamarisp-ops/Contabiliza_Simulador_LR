@@ -4,7 +4,11 @@ const { grantLicense, revokeByOrderId, markEmailSent, needsAccessEmail } = requi
 const { sendAccessEmail } = require('./email');
 
 function getWebhookSecret() {
-  return process.env.CAKTO_WEBHOOK_SECRET || '';
+  return String(process.env.CAKTO_WEBHOOK_SECRET || '').replace(/^["']|["']$/g, '').trim();
+}
+
+function incomingSecret(payload) {
+  return String((payload && payload.secret) || '').replace(/^["']|["']$/g, '').trim();
 }
 
 function parseBody(raw) {
@@ -57,9 +61,14 @@ async function handleCaktoWebhook(body) {
   const orderId = data.id || payload.id || null;
   const customer = customerFrom(data);
 
+  const receivedSecret = incomingSecret(payload);
+  const secretOk = Boolean(secret) && receivedSecret === secret;
+
   console.log('[webhook] recebido', JSON.stringify({
     event: event || null,
-    secretOk: Boolean(secret) && payload.secret === secret,
+    secretOk,
+    secretLen: receivedSecret.length,
+    expectedLen: secret.length,
     hasEmail: Boolean(customer.email),
     orderId
   }));
@@ -67,7 +76,8 @@ async function handleCaktoWebhook(body) {
   if (!secret) {
     return { status: 500, payload: { ok: false, error: 'CAKTO_WEBHOOK_SECRET não configurado.' } };
   }
-  if (payload.secret !== secret) {
+  if (!secretOk) {
+    console.error('[webhook] secret da Cakto diferente do CAKTO_WEBHOOK_SECRET do Render');
     return { status: 401, payload: { ok: false, error: 'Secret inválido.' } };
   }
 
