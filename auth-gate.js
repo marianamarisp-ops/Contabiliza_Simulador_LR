@@ -3,6 +3,7 @@
   'use strict';
 
   var TOKEN_KEY = 'contabiliza_session';
+  var CREDS_KEY = 'contabiliza_saved_creds';
 
   function $(id) { return document.getElementById(id); }
 
@@ -16,6 +17,34 @@
 
   function clearToken() {
     try { localStorage.removeItem(TOKEN_KEY); } catch (e) {}
+  }
+
+  function getSavedCreds() {
+    try {
+      var raw = localStorage.getItem(CREDS_KEY);
+      if (!raw) return null;
+      var data = JSON.parse(raw);
+      if (!data || !data.email || !data.accessKey) return null;
+      return {
+        email: String(data.email).trim().toLowerCase(),
+        accessKey: String(data.accessKey).trim()
+      };
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function setSavedCreds(email, accessKey) {
+    try {
+      localStorage.setItem(CREDS_KEY, JSON.stringify({
+        email: String(email || '').trim().toLowerCase(),
+        accessKey: String(accessKey || '').trim()
+      }));
+    } catch (e) {}
+  }
+
+  function clearSavedCreds() {
+    try { localStorage.removeItem(CREDS_KEY); } catch (e) {}
   }
 
   function api(path, options) {
@@ -34,10 +63,73 @@
     });
   }
 
+  function setLoginMode(on) {
+    var gate = $('authGate');
+    var back = $('authBackProduct');
+    if (gate) gate.classList.toggle('is-login', !!on);
+    if (back) back.hidden = !on;
+    if (on) {
+      showContact(false);
+      syncLoginForm();
+      var email = $('authEmail');
+      if (email) email.focus();
+      try { window.scrollTo({ top: 0, behavior: 'smooth' }); } catch (e) { window.scrollTo(0, 0); }
+    }
+  }
+
+  function syncLoginForm() {
+    var creds = getSavedCreds();
+    var title = $('authTitle');
+    var lead = $('authLead');
+    var label = $('authKeyLabel');
+    var hint = $('authKeyHint');
+    var switchBtn = $('authSwitchAccount');
+    var emailInput = $('authEmail');
+    var keyInput = $('authKey');
+    var buy = document.querySelector('#authLoginCard .auth-buy');
+
+    if (creds) {
+      if (title) title.textContent = 'Entrar no simulador';
+      if (lead) {
+        lead.innerHTML = 'Acesso já liberado neste aparelho. Use o <b>e-mail</b> e a <b>senha</b> salvos — sem precisar digitar a chave de novo.';
+      }
+      if (label) label.textContent = 'Senha';
+      if (hint) {
+        hint.textContent = 'É a mesma chave de acesso enviada após o pagamento, guardada neste navegador.';
+      }
+      if (emailInput && !emailInput.value) emailInput.value = creds.email;
+      if (keyInput) {
+        keyInput.value = creds.accessKey;
+        keyInput.placeholder = '••••••••••••••••';
+        keyInput.required = true;
+      }
+      if (switchBtn) switchBtn.hidden = false;
+      if (buy) buy.hidden = true;
+    } else {
+      if (title) title.textContent = 'Acesso ao simulador';
+      if (lead) {
+        lead.innerHTML = 'Já comprou? Entre com o <b>mesmo e-mail da compra na Cakto</b> e a <b>chave de acesso</b> enviada após o pagamento. Na próxima vez, neste aparelho, e-mail e senha bastam.';
+      }
+      if (label) label.textContent = 'Chave de acesso';
+      if (hint) {
+        hint.textContent = 'Use a chave recebida por e-mail. Depois da primeira entrada, ela vira sua senha neste aparelho.';
+      }
+      if (keyInput) {
+        keyInput.placeholder = 'CONT-XXXX-XXXX-XXXX';
+        keyInput.required = true;
+      }
+      if (switchBtn) switchBtn.hidden = true;
+      if (buy) buy.hidden = false;
+    }
+  }
+
   function showApp(user) {
     var gate = $('authGate');
     var app = $('appRoot');
-    if (gate) gate.hidden = true;
+    if (gate) {
+      gate.hidden = true;
+      gate.classList.remove('is-login');
+    }
     if (app) app.hidden = false;
     var chip = $('authUserChip');
     if (chip) {
@@ -54,6 +146,7 @@
     var chip = $('authUserChip');
     if (chip) chip.hidden = true;
     showContact(false);
+    syncLoginForm();
     if (msg) {
       var err = $('authError');
       if (err) {
@@ -66,6 +159,7 @@
   function logout() {
     clearToken();
     showGate('');
+    setLoginMode(true);
     var err = $('authError');
     if (err) err.hidden = true;
   }
@@ -91,6 +185,35 @@
   function boot() {
     var logoutBtn = $('authLogout');
     if (logoutBtn) logoutBtn.addEventListener('click', logout);
+
+    var goLogin = $('authGoLogin');
+    if (goLogin) {
+      goLogin.addEventListener('click', function () {
+        setLoginMode(true);
+      });
+    }
+
+    var backProduct = $('authBackProduct');
+    if (backProduct) {
+      backProduct.addEventListener('click', function () {
+        setLoginMode(false);
+        var err = $('authError');
+        if (err) { err.hidden = true; err.textContent = ''; }
+      });
+    }
+
+    var switchAccount = $('authSwitchAccount');
+    if (switchAccount) {
+      switchAccount.addEventListener('click', function () {
+        clearSavedCreds();
+        var emailInput = $('authEmail');
+        var keyInput = $('authKey');
+        if (emailInput) emailInput.value = '';
+        if (keyInput) keyInput.value = '';
+        syncLoginForm();
+        if (emailInput) emailInput.focus();
+      });
+    }
 
     var contactOpen = $('authContactOpen');
     var contactBack = $('contactBack');
@@ -159,6 +282,10 @@
         ev.preventDefault();
         var email = ($('authEmail') || {}).value || '';
         var accessKey = ($('authKey') || {}).value || '';
+        var saved = getSavedCreds();
+        if ((!accessKey || !String(accessKey).trim()) && saved && saved.accessKey) {
+          accessKey = saved.accessKey;
+        }
         var btn = $('authSubmit');
         var err = $('authError');
         if (err) { err.hidden = true; err.textContent = ''; }
@@ -170,16 +297,21 @@
           if (btn) { btn.disabled = false; btn.textContent = 'Entrar'; }
           if (!r.data || !r.data.ok) {
             showGate((r.data && r.data.error) || 'Não foi possível entrar.');
+            setLoginMode(true);
             return;
           }
           setToken(r.data.token);
+          setSavedCreds(email, accessKey);
           showApp(r.data.user);
         }).catch(function () {
           if (btn) { btn.disabled = false; btn.textContent = 'Entrar'; }
           showGate('Falha de conexão com o servidor. Confirme se o app está no ar.');
+          setLoginMode(true);
         });
       });
     }
+
+    syncLoginForm();
 
     var token = getToken();
     if (!token) {

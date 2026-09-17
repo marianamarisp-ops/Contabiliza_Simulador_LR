@@ -1,0 +1,20 @@
+---
+description: Após qualquer alteração, commit, push e deploy automaticamente
+alwaysApply: true
+---
+
+# Commit + Push + Deploy
+
+Sempre que fizer qualquer alteração no código deste projeto, executar nesta ordem, sem pedir confirmação:
+
+1. **Commit** — stage dos arquivos relevantes e commit com mensagem clara (foco no "porquê").
+2. **Push** — `git push -u origin HEAD` (ou `git push` se o tracking já existir).
+3. **Deploy** — o push para `main` dispara o deploy automático no Render; confirmar que o push foi para a branch que faz deploy. Se houver CLI/comando de deploy explícito no projeto, usá-lo após o push.
+
+## Regras
+
+- Não esperar o usuário pedir commit/push/deploy.
+- Não pular o push após o commit.
+- Não commitar secrets (`.env`, credenciais, etc.).
+- Seguir o protocolo de segurança do git (sem `--force` em main, sem alterar git config, sem pular hooks).
+- Se o commit ou o push falhar, corrigir e tentar de novo; informar o usuário só se ficar bloqueado.

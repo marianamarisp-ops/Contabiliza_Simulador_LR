@@ -28,9 +28,14 @@ body{font-family:"Montserrat",system-ui,-apple-system,BlinkMacSystemFont,"Segoe 
 @media(max-width:520px){.logo-fc{height:64px}}
 
 /* ----- página do produto + acesso (login) ----- */
-.auth-gate{min-height:70vh;display:flex;align-items:flex-start;justify-content:center;padding:12px}
+.auth-gate{min-height:calc(100vh - 48px);display:flex;align-items:flex-start;justify-content:center;padding:12px}
 .auth-gate[hidden]{display:none!important}
+.auth-gate.is-login{align-items:center}
 .product-page{width:100%;max-width:1120px;display:grid;grid-template-columns:minmax(0,1.2fr) 400px;gap:22px;align-items:start}
+.auth-gate.is-login .product-page{max-width:440px;grid-template-columns:1fr;justify-items:center}
+.auth-gate.is-login .product-card{display:none}
+.auth-gate.is-login .product-access{width:100%;display:flex;justify-content:center}
+.auth-gate.is-login .auth-card{margin:0 auto}
 .product-card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden;border-top:4px solid var(--lr)}
 .product-shot{width:100%;display:block;aspect-ratio:16/10;object-fit:cover;background:var(--soft)}
 .product-info{padding:26px 26px 24px}
@@ -49,14 +54,19 @@ body{font-family:"Montserrat",system-ui,-apple-system,BlinkMacSystemFont,"Segoe 
 .product-features{list-style:none;display:grid;grid-template-columns:1fr 1fr;gap:8px 12px;margin:0 0 20px}
 .product-features li{font-size:.86rem;font-weight:600;color:var(--ink);padding:10px 12px 10px 28px;position:relative;line-height:1.4;background:var(--surface);border:1px solid var(--line);border-radius:8px}
 .product-features li::before{content:"";position:absolute;left:11px;top:14px;width:8px;height:8px;border-radius:50%;background:var(--lr);box-shadow:0 0 0 3px rgba(33,134,122,.18)}
-.product-cta-block{padding-top:4px;border-top:1px solid var(--line)}
+.product-cta-block{padding-top:4px;border-top:1px solid var(--line);display:flex;flex-direction:column;align-items:flex-start;gap:0}
 .product-buy{display:inline-flex;width:100%;max-width:360px;margin-top:14px}
-.product-secure{margin-top:12px;font-size:.82rem;color:var(--muted);line-height:1.45}
-.product-note{margin-top:8px;font-size:.76rem;color:var(--muted);line-height:1.4}
+.product-login{display:inline-flex;width:100%;max-width:360px;margin-top:10px}
+.product-secure{margin-top:12px;font-size:.82rem;color:var(--muted);line-height:1.45;max-width:420px}
+.product-note{margin-top:8px;font-size:.76rem;color:var(--muted);line-height:1.4;max-width:420px}
 .product-access{min-width:0}
 .auth-card[hidden]{display:none!important}
 .auth-card{width:100%;max-width:440px;background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:28px 26px 24px;border-top:4px solid var(--lr)}
 .auth-buy{display:flex;width:100%;margin-top:12px}
+.auth-buy[hidden]{display:none!important}
+.auth-back,.auth-switch{display:flex;width:100%;margin-top:10px}
+.auth-back[hidden],.auth-switch[hidden]{display:none!important}
+.auth-field-hint{font-size:.78rem;color:var(--muted);line-height:1.4;margin-top:6px}
 a.btn{display:inline-flex;align-items:center;justify-content:center;text-decoration:none;box-sizing:border-box}
 .auth-logo{height:64px;width:auto;display:block;margin-bottom:16px}
 .auth-card h1{font-size:1.25rem;font-weight:800;color:var(--brand-navy);letter-spacing:.02em;margin-bottom:8px}
@@ -85,10 +95,11 @@ a.btn{display:inline-flex;align-items:center;justify-content:center;text-decorat
 @media(max-width:900px){
   .product-page{grid-template-columns:1fr}
   .product-shot{aspect-ratio:16/9;max-height:280px}
-  .product-buy{max-width:none}
+  .product-buy,.product-login{max-width:none}
   .product-hooks{grid-template-columns:1fr}
   .product-features{grid-template-columns:1fr}
   .auth-card{max-width:none}
+  .auth-gate.is-login .auth-card{max-width:440px}
 }
 @media(max-width:520px){
   .product-info{padding:20px 18px 18px}
