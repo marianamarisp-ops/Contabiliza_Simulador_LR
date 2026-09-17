@@ -1,0 +1,13 @@
+name: keepalive
+
+on:
+  schedule:
+    - cron: '*/10 * * * *'
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Keep Render awake
+        run: curl -fsS --max-time 60 https://contabiliza-simulador-lr.onrender.com/api/health
