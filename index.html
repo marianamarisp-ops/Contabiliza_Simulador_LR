@@ -54,65 +54,67 @@
         </ul>
 
         <div class="product-cta-block">
-          <a class="btn btn-lr btn-big product-buy" href="https://pay.cakto.com.br/3adgi57_1114972" target="_blank" rel="noopener noreferrer">Adquirir e liberar acesso</a>
-          <button id="authGoLogin" class="btn btn-primary btn-big product-login" type="button">Login / Entrar</button>
+          <div class="product-cta-row">
+            <a class="btn btn-lr btn-big product-buy" href="https://pay.cakto.com.br/3adgi57_1114972" target="_blank" rel="noopener noreferrer">Adquirir</a>
+            <button id="authGoLogin" class="btn btn-primary btn-big product-login" type="button">Login</button>
+          </div>
           <p class="product-secure">Pagamento seguro pela Cakto. A chave chega no e-mail da compra. Depois de liberado, entre com e-mail e senha — sem digitar o código de novo neste aparelho.</p>
           <p class="product-note">Ferramenta de simulação e apoio à decisão. Não substitui a apuração fiscal da empresa (Lucro Real, ECF ou LALUR).</p>
         </div>
       </div>
     </section>
 
-  <div class="product-access">
-  <div id="authLoginCard" class="auth-card">
-    <img class="auth-logo" alt="Contabiliza" src="logo-contabiliza.svg">
-    <h1 id="authTitle">Acesso ao simulador</h1>
-    <p id="authLead" class="auth-lead">Já comprou? Entre com o <b>mesmo e-mail da compra na Cakto</b> e a <b>chave de acesso</b> enviada após o pagamento. Na próxima vez, neste aparelho, e-mail e senha bastam.</p>
-    <form id="authForm" class="auth-form" autocomplete="on">
-      <label for="authEmail">E-mail</label>
-      <input id="authEmail" name="email" type="email" required placeholder="voce@empresa.com" autocomplete="username">
-      <div id="authKeyBlock">
-        <label for="authKey" id="authKeyLabel">Chave de acesso</label>
-        <div class="auth-key-wrap">
-          <input id="authKey" name="accessKey" type="password" required placeholder="CONT-XXXX-XXXX-XXXX" autocomplete="current-password" spellcheck="false">
-          <button id="authKeyToggle" class="auth-key-toggle" type="button" aria-label="Mostrar chave de acesso" aria-pressed="false">Mostrar</button>
-        </div>
-        <p id="authKeyHint" class="auth-field-hint">Use a chave recebida por e-mail. Depois da primeira entrada, ela vira sua senha neste aparelho.</p>
+    <div class="product-access" aria-hidden="true">
+      <div id="authLoginCard" class="auth-card">
+        <img class="auth-logo" alt="Contabiliza" src="logo-contabiliza.svg">
+        <h1 id="authTitle">Acesso ao simulador</h1>
+        <p id="authLead" class="auth-lead">Já comprou? Entre com o <b>mesmo e-mail da compra na Cakto</b> e a <b>chave de acesso</b> enviada após o pagamento. Na próxima vez, neste aparelho, e-mail e senha bastam.</p>
+        <form id="authForm" class="auth-form" autocomplete="on">
+          <label for="authEmail">E-mail</label>
+          <input id="authEmail" name="email" type="email" required placeholder="voce@empresa.com" autocomplete="username">
+          <div id="authKeyBlock">
+            <label for="authKey" id="authKeyLabel">Chave de acesso</label>
+            <div class="auth-key-wrap">
+              <input id="authKey" name="accessKey" type="password" required placeholder="CONT-XXXX-XXXX-XXXX" autocomplete="current-password" spellcheck="false">
+              <button id="authKeyToggle" class="auth-key-toggle" type="button" aria-label="Mostrar chave de acesso" aria-pressed="false">Mostrar</button>
+            </div>
+            <p id="authKeyHint" class="auth-field-hint">Use a chave recebida por e-mail. Depois da primeira entrada, ela vira sua senha neste aparelho.</p>
+          </div>
+          <div id="authError" class="auth-error" hidden></div>
+          <button id="authSubmit" class="btn btn-primary auth-submit" type="submit">Entrar</button>
+          <button id="authSwitchAccount" class="btn btn-ghost auth-switch" type="button" hidden>Usar outro e-mail ou chave</button>
+        </form>
+        <button id="authBackProduct" class="btn btn-ghost auth-back" type="button" hidden>Voltar à página do produto</button>
+        <a class="btn btn-lr auth-buy" href="https://pay.cakto.com.br/3adgi57_1114972" target="_blank" rel="noopener noreferrer">Ainda não tem? Adquirir agora</a>
+        <p class="auth-help">Pagou e ainda não recebeu a chave?</p>
+        <button id="authContactOpen" class="btn btn-ghost auth-contact-btn" type="button">Fale conosco</button>
       </div>
-      <div id="authError" class="auth-error" hidden></div>
-      <button id="authSubmit" class="btn btn-primary auth-submit" type="submit">Entrar</button>
-      <button id="authSwitchAccount" class="btn btn-ghost auth-switch" type="button" hidden>Usar outro e-mail ou chave</button>
-    </form>
-    <button id="authBackProduct" class="btn btn-ghost auth-back" type="button" hidden>Voltar à página do produto</button>
-          <a class="btn btn-lr auth-buy" href="https://pay.cakto.com.br/3adgi57_1114972" target="_blank" rel="noopener noreferrer">Ainda não tem? Adquirir agora</a>
-    <p class="auth-help">Pagou e ainda não recebeu a chave?</p>
-    <button id="authContactOpen" class="btn btn-ghost auth-contact-btn" type="button">Fale conosco</button>
-  </div>
 
-  <div id="authContactCard" class="auth-card" hidden>
-    <img class="auth-logo" alt="Contabiliza" src="logo-contabiliza.svg">
-    <h1>Fale conosco</h1>
-    <p class="auth-lead">Envie sua mensagem para o suporte Contabiliza. Responderemos no e-mail informado.</p>
-    <form id="contactForm" class="auth-form" autocomplete="on">
-      <label for="contactName">Nome</label>
-      <input id="contactName" name="name" type="text" required maxlength="80" placeholder="Seu nome" autocomplete="name">
-      <label for="contactEmail">E-mail</label>
-      <input id="contactEmail" name="email" type="email" required maxlength="120" placeholder="voce@empresa.com" autocomplete="email">
-      <label for="contactSubject">Assunto</label>
-      <select id="contactSubject" name="subject" class="sel" required>
-        <option value="Chave de acesso não recebida">Chave de acesso não recebida</option>
-        <option value="Dúvida sobre o acesso">Dúvida sobre o acesso</option>
-        <option value="Outro assunto">Outro assunto</option>
-      </select>
-      <label for="contactMessage">Mensagem</label>
-      <textarea id="contactMessage" name="message" required minlength="10" maxlength="2000" rows="5" placeholder="Descreva sua solicitação"></textarea>
-      <input id="contactWebsite" name="website" type="text" tabindex="-1" autocomplete="off" class="contact-hp" aria-hidden="true">
-      <div id="contactError" class="auth-error" hidden></div>
-      <div id="contactOk" class="contact-ok" hidden></div>
-      <button id="contactSubmit" class="btn btn-primary auth-submit" type="submit">Enviar mensagem</button>
-      <button id="contactBack" class="btn btn-ghost auth-contact-btn" type="button">Voltar ao login</button>
-    </form>
-  </div>
-  </div>
+      <div id="authContactCard" class="auth-card" hidden>
+        <img class="auth-logo" alt="Contabiliza" src="logo-contabiliza.svg">
+        <h1>Fale conosco</h1>
+        <p class="auth-lead">Envie sua mensagem para o suporte Contabiliza. Responderemos no e-mail informado.</p>
+        <form id="contactForm" class="auth-form" autocomplete="on">
+          <label for="contactName">Nome</label>
+          <input id="contactName" name="name" type="text" required maxlength="80" placeholder="Seu nome" autocomplete="name">
+          <label for="contactEmail">E-mail</label>
+          <input id="contactEmail" name="email" type="email" required maxlength="120" placeholder="voce@empresa.com" autocomplete="email">
+          <label for="contactSubject">Assunto</label>
+          <select id="contactSubject" name="subject" class="sel" required>
+            <option value="Chave de acesso não recebida">Chave de acesso não recebida</option>
+            <option value="Dúvida sobre o acesso">Dúvida sobre o acesso</option>
+            <option value="Outro assunto">Outro assunto</option>
+          </select>
+          <label for="contactMessage">Mensagem</label>
+          <textarea id="contactMessage" name="message" required minlength="10" maxlength="2000" rows="5" placeholder="Descreva sua solicitação"></textarea>
+          <input id="contactWebsite" name="website" type="text" tabindex="-1" autocomplete="off" class="contact-hp" aria-hidden="true">
+          <div id="contactError" class="auth-error" hidden></div>
+          <div id="contactOk" class="contact-ok" hidden></div>
+          <button id="contactSubmit" class="btn btn-primary auth-submit" type="submit">Enviar mensagem</button>
+          <button id="contactBack" class="btn btn-ghost auth-contact-btn" type="button">Voltar ao login</button>
+        </form>
+      </div>
+    </div>
   </div>
 </div>
 

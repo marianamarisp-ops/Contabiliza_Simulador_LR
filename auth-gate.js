@@ -66,8 +66,10 @@
   function setLoginMode(on) {
     var gate = $('authGate');
     var back = $('authBackProduct');
+    var access = document.querySelector('.product-access');
     if (gate) gate.classList.toggle('is-login', !!on);
     if (back) back.hidden = !on;
+    if (access) access.setAttribute('aria-hidden', on ? 'false' : 'true');
     if (on) {
       showContact(false);
       syncLoginForm();
@@ -148,11 +150,14 @@
     showContact(false);
     syncLoginForm();
     if (msg) {
+      setLoginMode(true);
       var err = $('authError');
       if (err) {
         err.hidden = false;
         err.textContent = msg;
       }
+    } else {
+      setLoginMode(false);
     }
   }
 
@@ -161,7 +166,7 @@
     showGate('');
     setLoginMode(true);
     var err = $('authError');
-    if (err) err.hidden = true;
+    if (err) { err.hidden = true; err.textContent = ''; }
   }
 
   function showContact(open) {
