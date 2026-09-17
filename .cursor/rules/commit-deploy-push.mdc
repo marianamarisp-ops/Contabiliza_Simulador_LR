@@ -18,3 +18,4 @@ Sempre que fizer qualquer alteração no código deste projeto, executar nesta o
 - Não commitar secrets (`.env`, credenciais, etc.).
 - Seguir o protocolo de segurança do git (sem `--force` em main, sem alterar git config, sem pular hooks).
 - Se o commit ou o push falhar, corrigir e tentar de novo; informar o usuário só se ficar bloqueado.
+- Arquivos em `.github/workflows/` exigem scope `workflow` no token; se o push for rejeitado por isso, commit/push sem esses arquivos e avisar o usuário.
