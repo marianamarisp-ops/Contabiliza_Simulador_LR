@@ -1,35 +1,77 @@
 'use strict';
 
-const { grantLicense, revokeByOrderId } = require('./licenses');
+const { grantLicense, revokeByOrderId, markEmailSent, needsAccessEmail } = require('./licenses');
 const { sendAccessEmail } = require('./email');
 
 function getWebhookSecret() {
   return process.env.CAKTO_WEBHOOK_SECRET || '';
 }
 
+function parseBody(raw) {
+  if (!raw) return {};
+  if (typeof raw === 'string') {
+    try {
+      return JSON.parse(raw);
+    } catch (_err) {
+      return {};
+    }
+  }
+  return raw;
+}
+
 function customerFrom(data) {
-  const c = (data && data.customer) || {};
+  const c = (data && (data.customer || data.buyer || data.client)) || {};
   return {
-    email: c.email,
+    email: c.email || (data && data.email) || '',
     name: c.name || '',
     phone: c.phone || ''
   };
 }
 
+function queueAccessEmail(license, source) {
+  if (!needsAccessEmail(license)) {
+    console.log('[email] já enviado, não reenviar:', license.email, 'via', source);
+    return;
+  }
+  sendAccessEmail({
+    to: license.email,
+    name: license.name,
+    accessKey: license.accessKey
+  }).then((result) => {
+    if (result && result.sent) {
+      markEmailSent(license.email, true);
+      console.log('[email] enviado:', license.email, result.provider || source);
+      return;
+    }
+    console.error('[email] não enviado:', license.email, (result && result.reason) || 'unknown');
+  }).catch((err) => {
+    console.error('[email] falha:', license.email, err.message);
+  });
+}
+
 async function handleCaktoWebhook(body) {
+  const payload = parseBody(body);
   const secret = getWebhookSecret();
+  const event = payload.event || payload.type || null;
+  const data = payload.data || {};
+  const orderId = data.id || payload.id || null;
+  const customer = customerFrom(data);
+
+  console.log('[webhook] recebido', JSON.stringify({
+    event: event || null,
+    secretOk: Boolean(secret) && payload.secret === secret,
+    hasEmail: Boolean(customer.email),
+    orderId
+  }));
+
   if (!secret) {
     return { status: 500, payload: { ok: false, error: 'CAKTO_WEBHOOK_SECRET não configurado.' } };
   }
-  if (!body || body.secret !== secret) {
+  if (payload.secret !== secret) {
     return { status: 401, payload: { ok: false, error: 'Secret inválido.' } };
   }
 
-  const event = body.event;
-  const data = body.data || {};
-  const orderId = data.id || null;
   const product = data.product || {};
-  const customer = customerFrom(data);
 
   if (event === 'purchase_approved' || event === 'subscription_renewed') {
     const { license, created, reused } = grantLicense({
@@ -41,19 +83,8 @@ async function handleCaktoWebhook(body) {
       productName: product.name || null
     });
 
-    let emailResult = { sent: false, reason: 'skipped_reuse' };
-    if (created || !reused) {
-      try {
-        emailResult = await sendAccessEmail({
-          to: license.email,
-          name: license.name,
-          accessKey: license.accessKey
-        });
-      } catch (err) {
-        console.error('[webhook] falha ao enviar e-mail:', err.message);
-        emailResult = { sent: false, reason: err.message };
-      }
-    }
+    const emailQueued = needsAccessEmail(license);
+    if (emailQueued) queueAccessEmail(license, 'cakto');
 
     return {
       status: 200,
@@ -63,7 +94,8 @@ async function handleCaktoWebhook(body) {
         licenseId: license.id,
         email: license.email,
         created,
-        emailSent: Boolean(emailResult.sent)
+        reused,
+        emailQueued
       }
     };
   }
@@ -81,10 +113,10 @@ async function handleCaktoWebhook(body) {
     };
   }
 
-  // Outros eventos: só confirma recebimento
   return { status: 200, payload: { ok: true, event, ignored: true } };
 }
 
 module.exports = {
-  handleCaktoWebhook
+  handleCaktoWebhook,
+  queueAccessEmail
 };

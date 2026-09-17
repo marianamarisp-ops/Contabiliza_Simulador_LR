@@ -89,7 +89,7 @@
 
   function api(path, opts) {
     var ctrl = new AbortController();
-    var timer = setTimeout(function () { ctrl.abort(); }, 20000);
+    var timer = setTimeout(function () { ctrl.abort(); }, 35000);
     return fetch(path, Object.assign({ signal: ctrl.signal }, opts || {}))
       .then(parseJson)
       .finally(function () { clearTimeout(timer); });

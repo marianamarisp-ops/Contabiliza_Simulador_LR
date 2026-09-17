@@ -63,11 +63,13 @@ function fromHeader() {
   return process.env.SMTP_FROM || process.env.SMTP_USER || 'contabiliza.simulador@gmail.com';
 }
 
-async function sendViaWebhook({ from, to, subject, text, html, replyTo }) {
+async function postToRelay(payload, timeoutMs) {
   const url = process.env.EMAIL_WEBHOOK_URL;
-  const parsed = parseFrom(from);
+  if (!url || !process.env.EMAIL_WEBHOOK_SECRET) {
+    return { ok: false, reason: 'webhook_not_configured' };
+  }
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 20000);
+  const timer = setTimeout(() => controller.abort(), timeoutMs || 20000);
   try {
     const response = await fetch(url, {
       method: 'POST',
@@ -76,31 +78,41 @@ async function sendViaWebhook({ from, to, subject, text, html, replyTo }) {
       signal: controller.signal,
       body: JSON.stringify({
         secret: process.env.EMAIL_WEBHOOK_SECRET,
-        to,
-        subject,
-        text,
-        html,
-        replyTo: replyTo || undefined,
-        fromName: parsed.name
+        ...payload
       })
     });
     const raw = await response.text();
-    let payload = null;
+    let data = null;
     try {
-      payload = JSON.parse(raw);
+      data = JSON.parse(raw);
     } catch (_err) {
-      payload = null;
+      data = null;
     }
-    if (!response.ok || !payload || payload.ok === false) {
-      const reason = (payload && (payload.error || payload.reason)) || raw.slice(0, 180) || ('http_' + response.status);
-      return { sent: false, reason: String(reason) };
+    if (!response.ok || !data || data.ok === false) {
+      const reason = (data && (data.error || data.reason)) || raw.slice(0, 180) || ('http_' + response.status);
+      return { ok: false, reason: String(reason), data };
     }
-    return { sent: true, provider: 'gmail_https' };
+    return { ok: true, data };
   } catch (err) {
-    return { sent: false, reason: err.name === 'AbortError' ? 'webhook_timeout' : err.message };
+    return { ok: false, reason: err.name === 'AbortError' ? 'webhook_timeout' : err.message };
   } finally {
     clearTimeout(timer);
   }
+}
+
+async function sendViaWebhook({ from, to, subject, text, html, replyTo }) {
+  const parsed = parseFrom(from);
+  const result = await postToRelay({
+    action: 'sendEmail',
+    to,
+    subject,
+    text,
+    html,
+    replyTo: replyTo || undefined,
+    fromName: parsed.name
+  });
+  if (!result.ok) return { sent: false, reason: result.reason };
+  return { sent: true, provider: 'gmail_https' };
 }
 
 async function sendViaSmtp({ from, to, subject, text, html, replyTo }) {
@@ -214,6 +226,8 @@ module.exports = {
   smtpConfigured,
   mailConfigured,
   mailProvider,
+  webhookConfigured,
+  postToRelay,
   sendAccessEmail,
   sendContactEmail
 };

@@ -4,7 +4,7 @@ require('dotenv').config();
 
 const path = require('path');
 const express = require('express');
-const { authenticate, listLicenses, createManualLicense, revokeByEmail } = require('./licenses');
+const { authenticate, listLicenses, createManualLicense, revokeByEmail, hydrateLicensesRemote, markEmailSent } = require('./licenses');
 const { createSessionToken, requireAuth, requireAdmin, verifySessionToken } = require('./auth');
 const { handleCaktoWebhook } = require('./webhook');
 const { sendAccessEmail, sendContactEmail, smtpConfigured, mailConfigured, mailProvider } = require('./email');
@@ -45,6 +45,7 @@ const ROOT = path.join(__dirname, '..');
 const PORT = Number(process.env.PORT || 3000);
 
 app.use(express.json({ limit: '1mb' }));
+app.use(express.urlencoded({ extended: true }));
 
 app.get('/api/health', (_req, res) => {
   res.json({
@@ -119,6 +120,8 @@ app.post('/api/contact', async (req, res) => {
 
 app.post('/webhook/cakto', async (req, res) => {
   try {
+    const bodyKeys = req.body && typeof req.body === 'object' ? Object.keys(req.body) : [];
+    console.log('[webhook] HTTP', req.headers['content-type'] || 'no-content-type', 'keys=', bodyKeys.join(',') || typeof req.body);
     const result = await handleCaktoWebhook(req.body);
     res.status(result.status).json(result.payload);
   } catch (err) {
@@ -145,6 +148,8 @@ app.post('/api/admin/licenses', requireAdmin, async (req, res) => {
         accessKey: license.accessKey
       });
       emailSent = Boolean(mail.sent);
+      if (emailSent) markEmailSent(license.email, true);
+      else console.error('[admin] e-mail não enviado:', mail.reason || 'unknown');
     } catch (err) {
       console.error('[admin] e-mail:', err.message);
     }
@@ -176,6 +181,7 @@ app.post('/api/admin/resend', requireAdmin, async (req, res) => {
       name: license.name,
       accessKey: license.accessKey
     });
+    if (mail.sent) markEmailSent(license.email, true);
     res.json({ ok: true, emailSent: Boolean(mail.sent), reason: mail.reason || null, accessKey: license.accessKey });
   } catch (err) {
     res.status(500).json({ ok: false, error: err.message });
@@ -207,4 +213,10 @@ app.listen(PORT, () => {
   if (!process.env.CAKTO_WEBHOOK_SECRET) console.warn('AVISO: CAKTO_WEBHOOK_SECRET não definido');
   if (!process.env.ADMIN_TOKEN) console.warn('AVISO: ADMIN_TOKEN não definido');
   if (!process.env.SESSION_SECRET) console.warn('AVISO: SESSION_SECRET não definido');
+  hydrateLicensesRemote()
+    .then((result) => {
+      if (result && result.ok) console.log('[licenses] backup remoto sincronizado:', result.merged || 0);
+      else console.warn('[licenses] backup remoto indisponível:', result && result.reason);
+    })
+    .catch((err) => console.warn('[licenses] backup remoto indisponível:', err.message));
 });

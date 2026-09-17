@@ -24,6 +24,69 @@ function writeStore(store) {
   const tmp = LICENSES_FILE + '.tmp';
   fs.writeFileSync(tmp, JSON.stringify(store, null, 2), 'utf8');
   fs.renameSync(tmp, LICENSES_FILE);
+  queueRemoteSync(store.licenses);
+}
+
+let remoteSyncTimer = null;
+function queueRemoteSync(licenses) {
+  clearTimeout(remoteSyncTimer);
+  const snapshot = Array.isArray(licenses) ? licenses.slice() : [];
+  remoteSyncTimer = setTimeout(() => {
+    syncLicensesRemote(snapshot).catch((err) => {
+      console.error('[licenses] backup remoto falhou:', err.message);
+    });
+  }, 300);
+}
+
+async function syncLicensesRemote(licenses) {
+  const { webhookConfigured, postToRelay } = require('./email');
+  if (!webhookConfigured()) return;
+  const result = await postToRelay({ action: 'saveLicenses', licenses }, 15000);
+  if (!result.ok && result.reason !== 'invalid') {
+    console.error('[licenses] backup remoto:', result.reason);
+  }
+}
+
+function newerStamp(a, b) {
+  return String((a && a.updatedAt) || (a && a.createdAt) || '') >
+    String((b && b.updatedAt) || (b && b.createdAt) || '');
+}
+
+async function hydrateLicensesRemote() {
+  const { webhookConfigured, postToRelay } = require('./email');
+  if (!webhookConfigured()) return { ok: false, reason: 'webhook_not_configured' };
+  const result = await postToRelay({ action: 'loadLicenses' }, 15000);
+  if (!result.ok) {
+    if (result.reason === 'invalid') return { ok: true, merged: 0 };
+    return { ok: false, reason: result.reason };
+  }
+  const remote = (result.data && result.data.licenses) || [];
+  if (!Array.isArray(remote) || !remote.length) return { ok: true, merged: 0 };
+  const store = readStore();
+  const byEmail = new Map(store.licenses.map((l) => [l.email, l]));
+  let merged = 0;
+  remote.forEach((item) => {
+    if (!item || !item.email) return;
+    const email = normalizeEmail(item.email);
+    const current = byEmail.get(email);
+    if (!current) {
+      store.licenses.push(item);
+      byEmail.set(email, item);
+      merged += 1;
+      return;
+    }
+    if (newerStamp(item, current)) {
+      Object.assign(current, item);
+      merged += 1;
+    }
+  });
+  if (merged) {
+    ensureStore();
+    const tmp = LICENSES_FILE + '.tmp';
+    fs.writeFileSync(tmp, JSON.stringify(store, null, 2), 'utf8');
+    fs.renameSync(tmp, LICENSES_FILE);
+  }
+  return { ok: true, merged };
 }
 
 function normalizeEmail(email) {
@@ -69,9 +132,12 @@ function grantLicense({ email, name, orderId, productId, productName, phone }) {
 
   const existingByEmail = store.licenses.find((l) => l.email === normalized);
   if (existingByEmail) {
+    const wasRevoked = existingByEmail.status !== 'active';
+    const orderChanged = Boolean(orderId && existingByEmail.orderId !== orderId);
     existingByEmail.status = 'active';
     existingByEmail.name = name || existingByEmail.name;
     existingByEmail.phone = phone || existingByEmail.phone;
+    if (wasRevoked || orderChanged) existingByEmail.emailSentAt = null;
     existingByEmail.orderId = orderId || existingByEmail.orderId;
     existingByEmail.productId = productId || existingByEmail.productId;
     existingByEmail.productName = productName || existingByEmail.productName;
@@ -88,6 +154,7 @@ function grantLicense({ email, name, orderId, productId, productName, phone }) {
     phone: phone || '',
     accessKey: generateAccessKey(),
     status: 'active',
+    emailSentAt: null,
     orderId: orderId || null,
     productId: productId || null,
     productName: productName || null,
@@ -136,6 +203,20 @@ function authenticate(email, accessKey) {
   return { ok: true, license };
 }
 
+function markEmailSent(email, sent) {
+  const store = readStore();
+  const license = store.licenses.find((l) => l.email === normalizeEmail(email));
+  if (!license) return null;
+  license.emailSentAt = sent ? new Date().toISOString() : null;
+  license.updatedAt = new Date().toISOString();
+  writeStore(store);
+  return license;
+}
+
+function needsAccessEmail(license) {
+  return Boolean(license && !license.emailSentAt);
+}
+
 function listLicenses() {
   return readStore().licenses.slice().sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
 }
@@ -160,5 +241,8 @@ module.exports = {
   listLicenses,
   createManualLicense,
   findByEmail,
-  findByOrderId
+  findByOrderId,
+  markEmailSent,
+  needsAccessEmail,
+  hydrateLicensesRemote
 };
