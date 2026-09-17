@@ -54,11 +54,11 @@ body{font-family:"Montserrat",system-ui,-apple-system,BlinkMacSystemFont,"Segoe 
 .product-features{list-style:none;display:grid;grid-template-columns:1fr 1fr;gap:8px 12px;margin:0 0 20px}
 .product-features li{font-size:.86rem;font-weight:600;color:var(--ink);padding:10px 12px 10px 28px;position:relative;line-height:1.4;background:var(--surface);border:1px solid var(--line);border-radius:8px}
 .product-features li::before{content:"";position:absolute;left:11px;top:14px;width:8px;height:8px;border-radius:50%;background:var(--lr);box-shadow:0 0 0 3px rgba(33,134,122,.18)}
-.product-cta-block{padding-top:4px;border-top:1px solid var(--line);display:flex;flex-direction:column;align-items:flex-start;gap:0}
-.product-cta-row{display:flex;flex-wrap:wrap;gap:10px;width:100%;max-width:420px;margin-top:14px}
+.product-cta-block{padding-top:4px;border-top:1px solid var(--line);display:flex;flex-direction:column;align-items:center;gap:0;text-align:center}
+.product-cta-row{display:flex;flex-wrap:wrap;justify-content:center;gap:10px;width:100%;max-width:420px;margin-top:14px}
 .product-buy,.product-login{display:inline-flex;flex:1 1 160px;min-width:140px;margin:0;justify-content:center}
-.product-secure{margin-top:12px;font-size:.82rem;color:var(--muted);line-height:1.45;max-width:420px}
-.product-note{margin-top:8px;font-size:.76rem;color:var(--muted);line-height:1.4;max-width:420px}
+.product-secure{margin-top:12px;font-size:.82rem;color:var(--muted);line-height:1.45;max-width:420px;text-align:center}
+.product-note{margin-top:8px;font-size:.76rem;color:var(--muted);line-height:1.4;max-width:420px;text-align:center}
 .product-access{display:none;min-width:0;width:100%}
 .auth-card[hidden]{display:none!important}
 .auth-card{width:100%;max-width:440px;background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:28px 26px 24px;border-top:4px solid var(--lr)}
