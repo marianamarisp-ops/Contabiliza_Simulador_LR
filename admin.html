@@ -115,7 +115,9 @@
         ? '<span class="admin-status on">ativo</span>'
         : '<span class="admin-status off">' + esc(l.status) + '</span>';
       return '<tr>' +
-        '<td><b>' + esc(l.email) + '</b><br><span style="color:#707070">' + esc(l.name) + '</span></td>' +
+        '<td><b>' + esc(l.email) + '</b><br><span style="color:#707070">' + esc(l.name) + '</span>' +
+          (l.hasPassword ? '<br><span style="color:#1f6b57;font-size:.72rem">senha cadastrada</span>' : '<br><span style="color:#8a6a00;font-size:.72rem">aguarda 1º login</span>') +
+        '</td>' +
         '<td><code>' + esc(l.accessKey) + '</code></td>' +
         '<td>' + st + '</td>' +
         '<td style="font-size:.75rem;word-break:break-all">' + esc(l.orderId || '—') + '</td>' +

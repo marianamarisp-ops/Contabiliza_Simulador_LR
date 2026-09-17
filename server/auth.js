@@ -27,6 +27,20 @@ function createSessionToken(license, ttlSeconds) {
   return `${body}.${sig}`;
 }
 
+function createSetupToken(license, ttlSeconds) {
+  const ttl = ttlSeconds || 60 * 15; // 15 minutos
+  const payload = {
+    sub: license.id,
+    email: license.email,
+    name: license.name || '',
+    purpose: 'set-password',
+    exp: Math.floor(Date.now() / 1000) + ttl
+  };
+  const body = b64url(JSON.stringify(payload));
+  const sig = crypto.createHmac('sha256', getSecret()).update(body).digest('base64url');
+  return `${body}.${sig}`;
+}
+
 function verifySessionToken(token) {
   if (!token || typeof token !== 'string' || !token.includes('.')) return null;
   const [body, sig] = token.split('.');
@@ -37,6 +51,24 @@ function verifySessionToken(token) {
   try {
     const payload = JSON.parse(Buffer.from(body, 'base64url').toString('utf8'));
     if (!payload.exp || payload.exp < Math.floor(Date.now() / 1000)) return null;
+    if (payload.purpose && payload.purpose !== 'session') return null;
+    return payload;
+  } catch {
+    return null;
+  }
+}
+
+function verifySetupToken(token) {
+  if (!token || typeof token !== 'string' || !token.includes('.')) return null;
+  const [body, sig] = token.split('.');
+  const expected = crypto.createHmac('sha256', getSecret()).update(body).digest('base64url');
+  const a = Buffer.from(sig);
+  const b = Buffer.from(expected);
+  if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return null;
+  try {
+    const payload = JSON.parse(Buffer.from(body, 'base64url').toString('utf8'));
+    if (!payload.exp || payload.exp < Math.floor(Date.now() / 1000)) return null;
+    if (payload.purpose !== 'set-password') return null;
     return payload;
   } catch {
     return null;
@@ -69,7 +101,9 @@ function requireAdmin(req, res, next) {
 
 module.exports = {
   createSessionToken,
+  createSetupToken,
   verifySessionToken,
+  verifySetupToken,
   requireAuth,
   requireAdmin
 };

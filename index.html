@@ -58,7 +58,7 @@
             <a class="btn btn-lr btn-big product-buy" href="https://pay.cakto.com.br/3adgi57_1114972" target="_blank" rel="noopener noreferrer">Adquirir</a>
             <button id="authGoLogin" class="btn btn-primary btn-big product-login" type="button">Login</button>
           </div>
-          <p class="product-secure">Pagamento seguro pela Cakto. A chave chega no e-mail da compra. Depois de liberado, entre com e-mail e senha — sem digitar o código de novo neste aparelho.</p>
+          <p class="product-secure">Pagamento seguro pela Cakto. A chave de ativação chega no e-mail da compra. No primeiro login você cadastra uma senha; depois entra só com e-mail e senha.</p>
           <p class="product-note">Ferramenta de simulação e apoio à decisão. Não substitui a apuração fiscal da empresa (Lucro Real, ECF ou LALUR).</p>
         </div>
       </div>
@@ -68,26 +68,77 @@
       <div id="authLoginCard" class="auth-card">
         <img class="auth-logo" alt="Contabiliza" src="logo-contabiliza.svg">
         <h1 id="authTitle">Acesso ao simulador</h1>
-        <p id="authLead" class="auth-lead">Já comprou? Entre com o <b>mesmo e-mail da compra na Cakto</b> e a <b>chave de acesso</b> enviada após o pagamento. Na próxima vez, neste aparelho, e-mail e senha bastam.</p>
+        <p id="authLead" class="auth-lead">Já comprou? Entre com o <b>mesmo e-mail da compra na Cakto</b> e a <b>chave de ativação</b> enviada após o pagamento. No primeiro acesso você cadastra sua senha.</p>
         <form id="authForm" class="auth-form" autocomplete="on">
           <label for="authEmail">E-mail</label>
           <input id="authEmail" name="email" type="email" required placeholder="voce@empresa.com" autocomplete="username">
           <div id="authKeyBlock">
-            <label for="authKey" id="authKeyLabel">Chave de acesso</label>
+            <label for="authKey" id="authKeyLabel">Chave de ativação</label>
             <div class="auth-key-wrap">
               <input id="authKey" name="accessKey" type="password" required placeholder="CONT-XXXX-XXXX-XXXX" autocomplete="current-password" spellcheck="false">
-              <button id="authKeyToggle" class="auth-key-toggle" type="button" aria-label="Mostrar chave de acesso" aria-pressed="false">Mostrar</button>
+              <button id="authKeyToggle" class="auth-key-toggle" type="button" aria-label="Mostrar chave de ativação" aria-pressed="false">Mostrar</button>
             </div>
-            <p id="authKeyHint" class="auth-field-hint">Use a chave recebida por e-mail. Depois da primeira entrada, ela vira sua senha neste aparelho.</p>
+            <p id="authKeyHint" class="auth-field-hint">Use a chave recebida por e-mail. Depois do primeiro login, ela é substituída pela senha que você cadastrar.</p>
           </div>
           <div id="authError" class="auth-error" hidden></div>
           <button id="authSubmit" class="btn btn-primary auth-submit" type="submit">Entrar</button>
+          <button id="authForgotOpen" class="btn btn-ghost auth-link-btn" type="button" hidden>Esqueci minha senha</button>
           <button id="authSwitchAccount" class="btn btn-ghost auth-switch" type="button" hidden>Usar outro e-mail ou chave</button>
         </form>
         <button id="authBackProduct" class="btn btn-ghost auth-back" type="button" hidden>Voltar à página do produto</button>
         <a class="btn btn-lr auth-buy" href="https://pay.cakto.com.br/3adgi57_1114972" target="_blank" rel="noopener noreferrer">Ainda não tem? Adquirir agora</a>
         <p class="auth-help">Pagou e ainda não recebeu a chave?</p>
         <button id="authContactOpen" class="btn btn-ghost auth-contact-btn" type="button">Fale conosco</button>
+      </div>
+
+      <div id="authPasswordCard" class="auth-card" hidden>
+        <img class="auth-logo" alt="Contabiliza" src="logo-contabiliza.svg">
+        <h1>Cadastre sua senha</h1>
+        <p class="auth-lead">Ativação confirmada. Crie uma senha para os próximos acessos — assim você não precisa mais da chave de ativação.</p>
+        <form id="passwordForm" class="auth-form" autocomplete="on">
+          <label for="authNewPassword">Nova senha</label>
+          <div class="auth-key-wrap">
+            <input id="authNewPassword" name="newPassword" type="password" required minlength="8" maxlength="128" placeholder="Mínimo 8 caracteres" autocomplete="new-password">
+            <button id="authNewPasswordToggle" class="auth-key-toggle" type="button" aria-label="Mostrar senha" aria-pressed="false">Mostrar</button>
+          </div>
+          <label for="authConfirmPassword">Confirmar senha</label>
+          <input id="authConfirmPassword" name="confirmPassword" type="password" required minlength="8" maxlength="128" placeholder="Repita a senha" autocomplete="new-password">
+          <p class="auth-field-hint">Guarde esta senha. Se esquecer, use “Esqueci minha senha” na tela de login.</p>
+          <div id="passwordError" class="auth-error" hidden></div>
+          <button id="passwordSubmit" class="btn btn-primary auth-submit" type="submit">Salvar senha e entrar</button>
+        </form>
+      </div>
+
+      <div id="authForgotCard" class="auth-card" hidden>
+        <img class="auth-logo" alt="Contabiliza" src="logo-contabiliza.svg">
+        <h1>Redefinir senha</h1>
+        <p class="auth-lead">Informe o e-mail da compra. Se já houver senha cadastrada, enviamos um link para criar uma nova.</p>
+        <form id="forgotForm" class="auth-form" autocomplete="on">
+          <label for="forgotEmail">E-mail</label>
+          <input id="forgotEmail" name="email" type="email" required placeholder="voce@empresa.com" autocomplete="email">
+          <div id="forgotError" class="auth-error" hidden></div>
+          <div id="forgotOk" class="contact-ok" hidden></div>
+          <button id="forgotSubmit" class="btn btn-primary auth-submit" type="submit">Enviar link</button>
+          <button id="forgotBack" class="btn btn-ghost auth-contact-btn" type="button">Voltar ao login</button>
+        </form>
+      </div>
+
+      <div id="authResetCard" class="auth-card" hidden>
+        <img class="auth-logo" alt="Contabiliza" src="logo-contabiliza.svg">
+        <h1>Nova senha</h1>
+        <p class="auth-lead">Defina a nova senha para acessar o simulador com e-mail e senha.</p>
+        <form id="resetForm" class="auth-form" autocomplete="on">
+          <label for="resetPassword">Nova senha</label>
+          <div class="auth-key-wrap">
+            <input id="resetPassword" name="password" type="password" required minlength="8" maxlength="128" placeholder="Mínimo 8 caracteres" autocomplete="new-password">
+            <button id="resetPasswordToggle" class="auth-key-toggle" type="button" aria-label="Mostrar senha" aria-pressed="false">Mostrar</button>
+          </div>
+          <label for="resetConfirmPassword">Confirmar senha</label>
+          <input id="resetConfirmPassword" name="confirmPassword" type="password" required minlength="8" maxlength="128" placeholder="Repita a senha" autocomplete="new-password">
+          <div id="resetError" class="auth-error" hidden></div>
+          <button id="resetSubmit" class="btn btn-primary auth-submit" type="submit">Salvar nova senha</button>
+          <button id="resetBack" class="btn btn-ghost auth-contact-btn" type="button">Voltar ao login</button>
+        </form>
       </div>
 
       <div id="authContactCard" class="auth-card" hidden>

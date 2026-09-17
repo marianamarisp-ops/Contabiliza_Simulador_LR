@@ -98,6 +98,44 @@ function generateAccessKey() {
   return `CONT-${part()}-${part()}-${part()}`;
 }
 
+const SCRYPT_KEYLEN = 64;
+const MIN_PASSWORD_LEN = 8;
+
+function hashPassword(password) {
+  const salt = crypto.randomBytes(16).toString('hex');
+  const hash = crypto.scryptSync(String(password), salt, SCRYPT_KEYLEN).toString('hex');
+  return `${salt}:${hash}`;
+}
+
+function verifyPassword(password, stored) {
+  if (!stored || typeof stored !== 'string' || !stored.includes(':')) return false;
+  const [salt, expected] = stored.split(':');
+  if (!salt || !expected) return false;
+  const actual = crypto.scryptSync(String(password), salt, SCRYPT_KEYLEN);
+  const expectedBuf = Buffer.from(expected, 'hex');
+  if (actual.length !== expectedBuf.length) return false;
+  return crypto.timingSafeEqual(actual, expectedBuf);
+}
+
+function validatePasswordStrength(password) {
+  const value = String(password || '');
+  if (value.length < MIN_PASSWORD_LEN) {
+    return { ok: false, error: `A senha deve ter pelo menos ${MIN_PASSWORD_LEN} caracteres.` };
+  }
+  if (value.length > 128) {
+    return { ok: false, error: 'A senha é longa demais.' };
+  }
+  return { ok: true };
+}
+
+function hashToken(token) {
+  return crypto.createHash('sha256').update(String(token)).digest('hex');
+}
+
+function hasPassword(license) {
+  return Boolean(license && license.passwordHash);
+}
+
 function findByEmail(email) {
   const store = readStore();
   const normalized = normalizeEmail(email);
@@ -153,6 +191,10 @@ function grantLicense({ email, name, orderId, productId, productName, phone }) {
     name: name || '',
     phone: phone || '',
     accessKey: generateAccessKey(),
+    passwordHash: null,
+    passwordSetAt: null,
+    resetTokenHash: null,
+    resetTokenExpiresAt: null,
     status: 'active',
     emailSentAt: null,
     orderId: orderId || null,
@@ -191,15 +233,102 @@ function revokeByEmail(email, reason) {
   return license;
 }
 
-function authenticate(email, accessKey) {
+function authenticate(email, credential) {
   const license = findByEmail(email);
-  if (!license) return { ok: false, error: 'E-mail ou chave inválidos.' };
+  if (!license) return { ok: false, error: 'E-mail ou credencial inválidos.' };
   if (license.status !== 'active') {
     return { ok: false, error: 'Acesso revogado ou inativo. Se acabou de pagar, aguarde alguns minutos ou fale com o suporte.' };
   }
-  if (String(accessKey || '').trim().toUpperCase() !== license.accessKey) {
-    return { ok: false, error: 'E-mail ou chave inválidos.' };
+
+  const cred = String(credential || '').trim();
+  if (!cred) return { ok: false, error: 'Informe a chave de acesso ou a senha.' };
+
+  const keyMatch = cred.toUpperCase() === String(license.accessKey || '').toUpperCase();
+  const passMatch = hasPassword(license) && verifyPassword(cred, license.passwordHash);
+
+  if (!hasPassword(license)) {
+    if (!keyMatch) {
+      return {
+        ok: false,
+        error: 'No primeiro acesso, use a chave enviada após o pagamento. Depois você cadastra sua senha.'
+      };
+    }
+    return { ok: true, license, needsPasswordSetup: true };
   }
+
+  if (passMatch) {
+    return { ok: true, license, needsPasswordSetup: false };
+  }
+
+  if (keyMatch) {
+    return {
+      ok: false,
+      error: 'Você já cadastrou uma senha. Entre com e-mail e senha, ou use “Esqueci minha senha”.'
+    };
+  }
+
+  return { ok: false, error: 'E-mail ou senha inválidos.' };
+}
+
+function setPasswordForLicense(email, password) {
+  const strength = validatePasswordStrength(password);
+  if (!strength.ok) return strength;
+
+  const store = readStore();
+  const license = store.licenses.find((l) => l.email === normalizeEmail(email));
+  if (!license) return { ok: false, error: 'Licença não encontrada.' };
+  if (license.status !== 'active') {
+    return { ok: false, error: 'Acesso revogado ou inativo.' };
+  }
+
+  license.passwordHash = hashPassword(password);
+  license.passwordSetAt = new Date().toISOString();
+  license.resetTokenHash = null;
+  license.resetTokenExpiresAt = null;
+  license.updatedAt = license.passwordSetAt;
+  writeStore(store);
+  return { ok: true, license };
+}
+
+function createPasswordReset(email) {
+  const store = readStore();
+  const license = store.licenses.find((l) => l.email === normalizeEmail(email));
+  if (!license || license.status !== 'active') {
+    return { ok: true, sent: false, reason: 'not_found' };
+  }
+  if (!hasPassword(license)) {
+    return { ok: true, sent: false, reason: 'no_password', license };
+  }
+
+  const token = crypto.randomBytes(32).toString('base64url');
+  license.resetTokenHash = hashToken(token);
+  license.resetTokenExpiresAt = new Date(Date.now() + 60 * 60 * 1000).toISOString();
+  license.updatedAt = new Date().toISOString();
+  writeStore(store);
+  return { ok: true, sent: true, token, license };
+}
+
+function resetPasswordWithToken(token, password) {
+  const strength = validatePasswordStrength(password);
+  if (!strength.ok) return strength;
+
+  const tokenHash = hashToken(token);
+  const store = readStore();
+  const license = store.licenses.find((l) => l.resetTokenHash && l.resetTokenHash === tokenHash);
+  if (!license) return { ok: false, error: 'Link de redefinição inválido ou já utilizado.' };
+  if (license.status !== 'active') {
+    return { ok: false, error: 'Acesso revogado ou inativo.' };
+  }
+  if (!license.resetTokenExpiresAt || new Date(license.resetTokenExpiresAt).getTime() < Date.now()) {
+    return { ok: false, error: 'Link de redefinição expirado. Solicite um novo.' };
+  }
+
+  license.passwordHash = hashPassword(password);
+  license.passwordSetAt = new Date().toISOString();
+  license.resetTokenHash = null;
+  license.resetTokenExpiresAt = null;
+  license.updatedAt = license.passwordSetAt;
+  writeStore(store);
   return { ok: true, license };
 }
 
@@ -218,7 +347,26 @@ function needsAccessEmail(license) {
 }
 
 function listLicenses() {
-  return readStore().licenses.slice().sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
+  return readStore().licenses.slice()
+    .sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''))
+    .map((l) => ({
+      id: l.id,
+      email: l.email,
+      name: l.name,
+      phone: l.phone,
+      accessKey: l.accessKey,
+      hasPassword: hasPassword(l),
+      passwordSetAt: l.passwordSetAt || null,
+      status: l.status,
+      emailSentAt: l.emailSentAt,
+      orderId: l.orderId,
+      productId: l.productId,
+      productName: l.productName,
+      createdAt: l.createdAt,
+      updatedAt: l.updatedAt,
+      revokedAt: l.revokedAt,
+      revokeReason: l.revokeReason
+    }));
 }
 
 function createManualLicense({ email, name }) {
@@ -238,6 +386,12 @@ module.exports = {
   revokeByOrderId,
   revokeByEmail,
   authenticate,
+  setPasswordForLicense,
+  createPasswordReset,
+  resetPasswordWithToken,
+  hasPassword,
+  validatePasswordStrength,
+  MIN_PASSWORD_LEN,
   listLicenses,
   createManualLicense,
   findByEmail,

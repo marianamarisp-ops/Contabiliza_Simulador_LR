@@ -4,14 +4,17 @@ require('dotenv').config();
 
 const path = require('path');
 const express = require('express');
-const { authenticate, listLicenses, createManualLicense, revokeByEmail, hydrateLicensesRemote, markEmailSent } = require('./licenses');
-const { createSessionToken, requireAuth, requireAdmin, verifySessionToken } = require('./auth');
+const { authenticate, listLicenses, createManualLicense, revokeByEmail, hydrateLicensesRemote, markEmailSent, setPasswordForLicense, createPasswordReset, resetPasswordWithToken, findByEmail, hasPassword } = require('./licenses');
+const { createSessionToken, createSetupToken, requireAuth, requireAdmin, verifySessionToken, verifySetupToken } = require('./auth');
 const { handleCaktoWebhook } = require('./webhook');
-const { sendAccessEmail, sendContactEmail, smtpConfigured, mailConfigured, mailProvider } = require('./email');
+const { sendAccessEmail, sendContactEmail, sendPasswordResetEmail, sendNoPasswordHintEmail, smtpConfigured, mailConfigured, mailProvider } = require('./email');
 
 const CONTACT_WINDOW_MS = 10 * 60 * 1000;
 const CONTACT_MAX = 3;
 const contactHits = new Map();
+const RESET_WINDOW_MS = 15 * 60 * 1000;
+const RESET_MAX = 3;
+const resetHits = new Map();
 const CONTACT_SUBJECTS = [
   'Chave de acesso não recebida',
   'Dúvida sobre o acesso',
@@ -24,16 +27,24 @@ function clientIp(req) {
   return req.ip || req.socket.remoteAddress || 'unknown';
 }
 
-function tooManyContact(ip) {
+function tooManyHits(map, key, windowMs, max) {
   const now = Date.now();
-  const list = (contactHits.get(ip) || []).filter((t) => now - t < CONTACT_WINDOW_MS);
-  if (list.length >= CONTACT_MAX) {
-    contactHits.set(ip, list);
+  const list = (map.get(key) || []).filter((t) => now - t < windowMs);
+  if (list.length >= max) {
+    map.set(key, list);
     return true;
   }
   list.push(now);
-  contactHits.set(ip, list);
+  map.set(key, list);
   return false;
+}
+
+function tooManyContact(ip) {
+  return tooManyHits(contactHits, ip, CONTACT_WINDOW_MS, CONTACT_MAX);
+}
+
+function tooManyReset(ip) {
+  return tooManyHits(resetHits, ip, RESET_WINDOW_MS, RESET_MAX);
 }
 
 function isValidEmail(value) {
@@ -59,15 +70,129 @@ app.get('/api/health', (_req, res) => {
 
 app.post('/api/auth/login', (req, res) => {
   const email = req.body && req.body.email;
-  const accessKey = req.body && req.body.accessKey;
-  const result = authenticate(email, accessKey);
+  const credential = (req.body && (req.body.password || req.body.accessKey || req.body.credential)) || '';
+  const result = authenticate(email, credential);
   if (!result.ok) {
     return res.status(401).json({ ok: false, error: result.error });
+  }
+
+  if (result.needsPasswordSetup) {
+    const setupToken = createSetupToken(result.license);
+    return res.json({
+      ok: true,
+      needsPasswordSetup: true,
+      setupToken,
+      user: {
+        email: result.license.email,
+        name: result.license.name || ''
+      }
+    });
+  }
+
+  const token = createSessionToken(result.license);
+  res.json({
+    ok: true,
+    needsPasswordSetup: false,
+    hasPassword: true,
+    token,
+    user: {
+      email: result.license.email,
+      name: result.license.name || ''
+    }
+  });
+});
+
+app.post('/api/auth/set-password', (req, res) => {
+  const setupToken = req.body && req.body.setupToken;
+  const password = req.body && req.body.password;
+  const confirm = req.body && req.body.confirmPassword;
+  const payload = verifySetupToken(setupToken);
+  if (!payload) {
+    return res.status(401).json({ ok: false, error: 'Sessão de cadastro expirada. Entre de novo com a chave de ativação.' });
+  }
+  if (String(password || '') !== String(confirm || '')) {
+    return res.status(400).json({ ok: false, error: 'A confirmação da senha não confere.' });
+  }
+  const current = findByEmail(payload.email);
+  if (!current || current.status !== 'active' || current.id !== payload.sub) {
+    return res.status(401).json({ ok: false, error: 'Licença inválida para cadastro de senha.' });
+  }
+  if (hasPassword(current)) {
+    return res.status(400).json({ ok: false, error: 'Senha já cadastrada. Entre com e-mail e senha.' });
+  }
+  const result = setPasswordForLicense(payload.email, password);
+  if (!result.ok) {
+    return res.status(400).json({ ok: false, error: result.error });
   }
   const token = createSessionToken(result.license);
   res.json({
     ok: true,
     token,
+    user: {
+      email: result.license.email,
+      name: result.license.name || ''
+    }
+  });
+});
+
+app.post('/api/auth/forgot-password', async (req, res) => {
+  const email = String((req.body && req.body.email) || '').trim().toLowerCase();
+  if (!isValidEmail(email)) {
+    return res.status(400).json({ ok: false, error: 'Informe um e-mail válido.' });
+  }
+  if (tooManyReset(clientIp(req) + ':' + email)) {
+    return res.status(429).json({ ok: false, error: 'Aguarde alguns minutos antes de solicitar de novo.' });
+  }
+
+  const generic = {
+    ok: true,
+    message: 'Se este e-mail tiver acesso, você receberá orientações em instantes.'
+  };
+
+  try {
+    const result = createPasswordReset(email);
+    if (result.reason === 'no_password' && result.license) {
+      await sendNoPasswordHintEmail({
+        to: result.license.email,
+        name: result.license.name
+      });
+      return res.json(generic);
+    }
+    if (result.sent && result.token && result.license) {
+      const mail = await sendPasswordResetEmail({
+        to: result.license.email,
+        name: result.license.name,
+        resetToken: result.token
+      });
+      if (!mail.sent) {
+        console.error('[auth] reset e-mail não enviado:', mail.reason || 'unknown');
+      }
+    }
+    return res.json(generic);
+  } catch (err) {
+    console.error('[auth] forgot-password:', err);
+    return res.status(500).json({ ok: false, error: 'Não foi possível processar o pedido. Tente novamente.' });
+  }
+});
+
+app.post('/api/auth/reset-password', (req, res) => {
+  const token = req.body && req.body.token;
+  const password = req.body && req.body.password;
+  const confirm = req.body && req.body.confirmPassword;
+  if (!token) {
+    return res.status(400).json({ ok: false, error: 'Link de redefinição inválido.' });
+  }
+  if (String(password || '') !== String(confirm || '')) {
+    return res.status(400).json({ ok: false, error: 'A confirmação da senha não confere.' });
+  }
+  const result = resetPasswordWithToken(token, password);
+  if (!result.ok) {
+    return res.status(400).json({ ok: false, error: result.error });
+  }
+  const session = createSessionToken(result.license);
+  res.json({
+    ok: true,
+    token: session,
     user: {
       email: result.license.email,
       name: result.license.name || ''

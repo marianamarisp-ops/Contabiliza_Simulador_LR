@@ -145,19 +145,19 @@ async function sendAccessEmail({ to, name, accessKey }) {
   const subject = 'Seu acesso ao Simulador Contabiliza';
   const text =
     `Olá${name ? ' ' + name : ''},\n\n` +
-    `Seu pagamento foi confirmado. Use os dados abaixo para entrar:\n\n` +
+    `Seu pagamento foi confirmado. Use os dados abaixo para o primeiro acesso:\n\n` +
     `Link: ${appUrl}\n` +
     `E-mail: ${to}\n` +
-    `Chave de acesso: ${accessKey}\n\n` +
-    `Guarde esta chave. Em caso de dúvida, responda este e-mail.\n\n` +
+    `Chave de ativação: ${accessKey}\n\n` +
+    `No primeiro login, cadastre uma senha. Depois, entre só com e-mail e senha.\n\n` +
     `Contabiliza`;
   const html =
     `<p>Olá${name ? ' ' + name : ''},</p>` +
-    `<p>Seu pagamento foi confirmado. Use os dados abaixo para entrar:</p>` +
+    `<p>Seu pagamento foi confirmado. Use os dados abaixo para o <b>primeiro acesso</b>:</p>` +
     `<p><b>Link:</b> <a href="${appUrl}">${appUrl}</a><br>` +
     `<b>E-mail:</b> ${to}<br>` +
-    `<b>Chave de acesso:</b> <code style="font-size:16px">${accessKey}</code></p>` +
-    `<p>Guarde esta chave. Em caso de dúvida, fale com o suporte.</p>` +
+    `<b>Chave de ativação:</b> <code style="font-size:16px">${accessKey}</code></p>` +
+    `<p>No primeiro login, você cadastra uma senha. Nas próximas vezes, entre só com e-mail e senha.</p>` +
     `<p>Contabiliza</p>`;
 
   if (!mailConfigured()) {
@@ -170,6 +170,67 @@ async function sendAccessEmail({ to, name, accessKey }) {
     return await sendMail({ to, subject, text, html });
   } catch (err) {
     console.error('[email] falha no envio da chave:', err.message);
+    return { sent: false, reason: err.message };
+  }
+}
+
+async function sendPasswordResetEmail({ to, name, resetToken }) {
+  const appUrl = (process.env.PUBLIC_APP_URL || 'http://localhost:3000').replace(/\/$/, '');
+  const resetUrl = `${appUrl}/?resetToken=${encodeURIComponent(resetToken)}`;
+  const subject = 'Redefinir senha — Simulador Contabiliza';
+  const text =
+    `Olá${name ? ' ' + name : ''},\n\n` +
+    `Recebemos um pedido para redefinir a senha do Simulador Contabiliza.\n\n` +
+    `Abra o link abaixo (válido por 1 hora):\n${resetUrl}\n\n` +
+    `Se você não pediu isso, ignore este e-mail.\n\n` +
+    `Contabiliza`;
+  const html =
+    `<p>Olá${name ? ' ' + name : ''},</p>` +
+    `<p>Recebemos um pedido para redefinir a senha do Simulador Contabiliza.</p>` +
+    `<p><a href="${resetUrl}" style="display:inline-block;padding:12px 18px;background:#5c1a2e;color:#fff;text-decoration:none;border-radius:6px;font-weight:700">Redefinir senha</a></p>` +
+    `<p>Ou copie e cole no navegador:<br><a href="${resetUrl}">${escapeHtml(resetUrl)}</a></p>` +
+    `<p>O link vale por 1 hora. Se você não pediu isso, ignore este e-mail.</p>` +
+    `<p>Contabiliza</p>`;
+
+  if (!mailConfigured()) {
+    console.log('[email] envio não configurado — reset NÃO enviado.');
+    console.log(`[email] Destinatário: ${to} | Reset: ${resetUrl}`);
+    return { sent: false, reason: 'smtp_not_configured' };
+  }
+
+  try {
+    return await sendMail({ to, subject, text, html });
+  } catch (err) {
+    console.error('[email] falha no reset de senha:', err.message);
+    return { sent: false, reason: err.message };
+  }
+}
+
+async function sendNoPasswordHintEmail({ to, name }) {
+  const appUrl = process.env.PUBLIC_APP_URL || 'http://localhost:3000';
+  const subject = 'Acesso ao Simulador Contabiliza';
+  const text =
+    `Olá${name ? ' ' + name : ''},\n\n` +
+    `Você ainda não cadastrou uma senha. No primeiro acesso, use o e-mail da compra e a chave de ativação enviada após o pagamento.\n\n` +
+    `Link: ${appUrl}\n\n` +
+    `Depois de entrar com a chave, você cria sua senha.\n\n` +
+    `Contabiliza`;
+  const html =
+    `<p>Olá${name ? ' ' + name : ''},</p>` +
+    `<p>Você ainda não cadastrou uma senha. No primeiro acesso, use o <b>e-mail da compra</b> e a <b>chave de ativação</b> enviada após o pagamento.</p>` +
+    `<p><b>Link:</b> <a href="${appUrl}">${appUrl}</a></p>` +
+    `<p>Depois de entrar com a chave, você cria sua senha para os próximos acessos.</p>` +
+    `<p>Contabiliza</p>`;
+
+  if (!mailConfigured()) {
+    console.log('[email] envio não configurado — dica de primeiro acesso NÃO enviada.');
+    return { sent: false, reason: 'smtp_not_configured' };
+  }
+
+  try {
+    return await sendMail({ to, subject, text, html });
+  } catch (err) {
+    console.error('[email] falha na dica de primeiro acesso:', err.message);
     return { sent: false, reason: err.message };
   }
 }
@@ -229,5 +290,7 @@ module.exports = {
   webhookConfigured,
   postToRelay,
   sendAccessEmail,
+  sendPasswordResetEmail,
+  sendNoPasswordHintEmail,
   sendContactEmail
 };

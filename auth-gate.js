@@ -1,9 +1,11 @@
-/* Gate de acesso: e-mail + chave liberada via Cakto / admin */
+/* Gate de acesso: 1º login com chave de ativação → cadastro de senha; depois e-mail + senha */
 (function () {
   'use strict';
 
   var TOKEN_KEY = 'contabiliza_session';
   var CREDS_KEY = 'contabiliza_saved_creds';
+  var setupToken = '';
+  var pendingResetToken = '';
 
   function $(id) { return document.getElementById(id); }
 
@@ -24,21 +26,21 @@
       var raw = localStorage.getItem(CREDS_KEY);
       if (!raw) return null;
       var data = JSON.parse(raw);
-      if (!data || !data.email || !data.accessKey) return null;
+      if (!data || !data.email) return null;
       return {
         email: String(data.email).trim().toLowerCase(),
-        accessKey: String(data.accessKey).trim()
+        hasPassword: Boolean(data.hasPassword)
       };
     } catch (e) {
       return null;
     }
   }
 
-  function setSavedCreds(email, accessKey) {
+  function setSavedCreds(email, hasPassword) {
     try {
       localStorage.setItem(CREDS_KEY, JSON.stringify({
         email: String(email || '').trim().toLowerCase(),
-        accessKey: String(accessKey || '').trim()
+        hasPassword: Boolean(hasPassword)
       }));
     } catch (e) {}
   }
@@ -63,19 +65,51 @@
     });
   }
 
-  function setLoginMode(on) {
+  function bindToggle(inputId, toggleId, showLabel, hideLabel) {
+    var input = $(inputId);
+    var toggle = $(toggleId);
+    if (!input || !toggle) return;
+    toggle.addEventListener('click', function () {
+      var showing = input.type === 'text';
+      input.type = showing ? 'password' : 'text';
+      toggle.textContent = showing ? 'Mostrar' : 'Ocultar';
+      toggle.setAttribute('aria-pressed', showing ? 'false' : 'true');
+      toggle.setAttribute('aria-label', showing ? showLabel : hideLabel);
+      input.focus();
+    });
+  }
+
+  function hideAllAuthCards() {
+    ['authLoginCard', 'authPasswordCard', 'authForgotCard', 'authResetCard', 'authContactCard'].forEach(function (id) {
+      var el = $(id);
+      if (el) el.hidden = true;
+    });
+  }
+
+  function showAuthPanel(panel) {
+    hideAllAuthCards();
+    var el = $(panel);
+    if (el) el.hidden = false;
+  }
+
+  function setLoginMode(on, panel) {
     var gate = $('authGate');
     var back = $('authBackProduct');
     var access = document.querySelector('.product-access');
     if (gate) gate.classList.toggle('is-login', !!on);
-    if (back) back.hidden = !on;
     if (access) access.setAttribute('aria-hidden', on ? 'false' : 'true');
     if (on) {
-      showContact(false);
-      syncLoginForm();
-      var email = $('authEmail');
-      if (email) email.focus();
+      showAuthPanel(panel || 'authLoginCard');
+      var showBack = !panel || panel === 'authLoginCard';
+      if (back) back.hidden = !showBack;
+      if (!panel || panel === 'authLoginCard') {
+        syncLoginForm();
+        var email = $('authEmail');
+        if (email) email.focus();
+      }
       try { window.scrollTo({ top: 0, behavior: 'smooth' }); } catch (e) { window.scrollTo(0, 0); }
+    } else if (back) {
+      back.hidden = true;
     }
   }
 
@@ -86,43 +120,89 @@
     var label = $('authKeyLabel');
     var hint = $('authKeyHint');
     var switchBtn = $('authSwitchAccount');
+    var forgotBtn = $('authForgotOpen');
     var emailInput = $('authEmail');
     var keyInput = $('authKey');
     var buy = document.querySelector('#authLoginCard .auth-buy');
+    var returning = Boolean(creds && creds.hasPassword);
 
-    if (creds) {
+    if (returning) {
       if (title) title.textContent = 'Entrar no simulador';
       if (lead) {
-        lead.innerHTML = 'Acesso já liberado neste aparelho. Use o <b>e-mail</b> e a <b>senha</b> salvos — sem precisar digitar a chave de novo.';
+        lead.innerHTML = 'Acesso já liberado neste aparelho. Entre com o <b>e-mail</b> e a <b>senha</b> que você cadastrou.';
       }
       if (label) label.textContent = 'Senha';
       if (hint) {
-        hint.textContent = 'É a mesma chave de acesso enviada após o pagamento, guardada neste navegador.';
+        hint.textContent = 'É a senha criada no primeiro acesso. Se esqueceu, use “Esqueci minha senha”.';
       }
       if (emailInput && !emailInput.value) emailInput.value = creds.email;
       if (keyInput) {
-        keyInput.value = creds.accessKey;
-        keyInput.placeholder = '••••••••••••••••';
+        keyInput.value = '';
+        keyInput.placeholder = 'Sua senha';
         keyInput.required = true;
+        keyInput.setAttribute('autocomplete', 'current-password');
+        keyInput.name = 'password';
       }
       if (switchBtn) switchBtn.hidden = false;
+      if (forgotBtn) forgotBtn.hidden = false;
       if (buy) buy.hidden = true;
     } else {
       if (title) title.textContent = 'Acesso ao simulador';
       if (lead) {
-        lead.innerHTML = 'Já comprou? Entre com o <b>mesmo e-mail da compra na Cakto</b> e a <b>chave de acesso</b> enviada após o pagamento. Na próxima vez, neste aparelho, e-mail e senha bastam.';
+        lead.innerHTML = 'Já comprou? Entre com o <b>mesmo e-mail da compra na Cakto</b> e a <b>chave de ativação</b> enviada após o pagamento. No primeiro acesso você cadastra sua senha.';
       }
-      if (label) label.textContent = 'Chave de acesso';
+      if (label) label.textContent = 'Chave de ativação';
       if (hint) {
-        hint.textContent = 'Use a chave recebida por e-mail. Depois da primeira entrada, ela vira sua senha neste aparelho.';
+        hint.textContent = 'Use a chave recebida por e-mail. Depois do primeiro login, ela é substituída pela senha que você cadastrar.';
       }
+      if (creds && emailInput && !emailInput.value) emailInput.value = creds.email;
       if (keyInput) {
+        keyInput.value = '';
         keyInput.placeholder = 'CONT-XXXX-XXXX-XXXX';
         keyInput.required = true;
+        keyInput.setAttribute('autocomplete', 'one-time-code');
+        keyInput.name = 'accessKey';
       }
       if (switchBtn) switchBtn.hidden = true;
+      if (forgotBtn) forgotBtn.hidden = false;
       if (buy) buy.hidden = false;
     }
+  }
+
+  function showPasswordSetup(email) {
+    setLoginMode(true, 'authPasswordCard');
+    var err = $('passwordError');
+    if (err) { err.hidden = true; err.textContent = ''; }
+    var form = $('passwordForm');
+    if (form) form.reset();
+    var pwd = $('authNewPassword');
+    if (pwd) pwd.focus();
+    if (email) setSavedCreds(email, false);
+  }
+
+  function showForgot() {
+    setLoginMode(true, 'authForgotCard');
+    var err = $('forgotError');
+    var ok = $('forgotOk');
+    if (err) { err.hidden = true; err.textContent = ''; }
+    if (ok) { ok.hidden = true; ok.textContent = ''; }
+    var loginEmail = ($('authEmail') || {}).value || '';
+    var forgotEmail = $('forgotEmail');
+    if (forgotEmail) {
+      if (!forgotEmail.value && loginEmail) forgotEmail.value = loginEmail;
+      forgotEmail.focus();
+    }
+  }
+
+  function showReset(token) {
+    pendingResetToken = token || pendingResetToken;
+    setLoginMode(true, 'authResetCard');
+    var err = $('resetError');
+    if (err) { err.hidden = true; err.textContent = ''; }
+    var form = $('resetForm');
+    if (form) form.reset();
+    var pwd = $('resetPassword');
+    if (pwd) pwd.focus();
   }
 
   function showApp(user) {
@@ -147,7 +227,7 @@
     if (app) app.hidden = true;
     var chip = $('authUserChip');
     if (chip) chip.hidden = true;
-    showContact(false);
+    showAuthPanel('authLoginCard');
     syncLoginForm();
     if (msg) {
       setLoginMode(true);
@@ -163,6 +243,7 @@
 
   function logout() {
     clearToken();
+    setupToken = '';
     showGate('');
     setLoginMode(true);
     var err = $('authError');
@@ -170,20 +251,37 @@
   }
 
   function showContact(open) {
-    var loginCard = $('authLoginCard');
-    var contactCard = $('authContactCard');
-    if (loginCard) loginCard.hidden = !!open;
-    if (contactCard) contactCard.hidden = !open;
-    var err = $('contactError');
-    var ok = $('contactOk');
-    if (err) { err.hidden = true; err.textContent = ''; }
-    if (ok) { ok.hidden = true; ok.textContent = ''; }
     if (open) {
+      setLoginMode(true, 'authContactCard');
+      var err = $('contactError');
+      var ok = $('contactOk');
+      if (err) { err.hidden = true; err.textContent = ''; }
+      if (ok) { ok.hidden = true; ok.textContent = ''; }
       var loginEmail = ($('authEmail') || {}).value || '';
       var contactEmail = $('contactEmail');
       if (contactEmail && !contactEmail.value && loginEmail) contactEmail.value = loginEmail;
       var nameField = $('contactName');
       if (nameField) nameField.focus();
+      return;
+    }
+    setLoginMode(true, 'authLoginCard');
+  }
+
+  function clearResetQuery() {
+    try {
+      var url = new URL(window.location.href);
+      if (!url.searchParams.has('resetToken')) return;
+      url.searchParams.delete('resetToken');
+      window.history.replaceState({}, document.title, url.pathname + url.search + url.hash);
+    } catch (e) {}
+  }
+
+  function readResetTokenFromUrl() {
+    try {
+      var url = new URL(window.location.href);
+      return url.searchParams.get('resetToken') || '';
+    } catch (e) {
+      return '';
     }
   }
 
@@ -217,6 +315,25 @@
         if (keyInput) keyInput.value = '';
         syncLoginForm();
         if (emailInput) emailInput.focus();
+      });
+    }
+
+    var forgotOpen = $('authForgotOpen');
+    if (forgotOpen) forgotOpen.addEventListener('click', showForgot);
+
+    var forgotBack = $('forgotBack');
+    if (forgotBack) {
+      forgotBack.addEventListener('click', function () {
+        setLoginMode(true, 'authLoginCard');
+      });
+    }
+
+    var resetBack = $('resetBack');
+    if (resetBack) {
+      resetBack.addEventListener('click', function () {
+        pendingResetToken = '';
+        clearResetQuery();
+        setLoginMode(true, 'authLoginCard');
       });
     }
 
@@ -268,36 +385,23 @@
       });
     }
 
-    var keyInput = $('authKey');
-    var keyToggle = $('authKeyToggle');
-    if (keyInput && keyToggle) {
-      keyToggle.addEventListener('click', function () {
-        var showing = keyInput.type === 'text';
-        keyInput.type = showing ? 'password' : 'text';
-        keyToggle.textContent = showing ? 'Mostrar' : 'Ocultar';
-        keyToggle.setAttribute('aria-pressed', showing ? 'false' : 'true');
-        keyToggle.setAttribute('aria-label', showing ? 'Mostrar chave de acesso' : 'Ocultar chave de acesso');
-        keyInput.focus();
-      });
-    }
+    bindToggle('authKey', 'authKeyToggle', 'Mostrar chave ou senha', 'Ocultar chave ou senha');
+    bindToggle('authNewPassword', 'authNewPasswordToggle', 'Mostrar senha', 'Ocultar senha');
+    bindToggle('resetPassword', 'resetPasswordToggle', 'Mostrar senha', 'Ocultar senha');
 
     var form = $('authForm');
     if (form) {
       form.addEventListener('submit', function (ev) {
         ev.preventDefault();
         var email = ($('authEmail') || {}).value || '';
-        var accessKey = ($('authKey') || {}).value || '';
-        var saved = getSavedCreds();
-        if ((!accessKey || !String(accessKey).trim()) && saved && saved.accessKey) {
-          accessKey = saved.accessKey;
-        }
+        var credential = ($('authKey') || {}).value || '';
         var btn = $('authSubmit');
         var err = $('authError');
         if (err) { err.hidden = true; err.textContent = ''; }
         if (btn) { btn.disabled = true; btn.textContent = 'Entrando…'; }
         api('/api/auth/login', {
           method: 'POST',
-          body: { email: email, accessKey: accessKey }
+          body: { email: email, password: credential, accessKey: credential }
         }).then(function (r) {
           if (btn) { btn.disabled = false; btn.textContent = 'Entrar'; }
           if (!r.data || !r.data.ok) {
@@ -305,8 +409,13 @@
             setLoginMode(true);
             return;
           }
+          if (r.data.needsPasswordSetup) {
+            setupToken = r.data.setupToken || '';
+            showPasswordSetup(email);
+            return;
+          }
           setToken(r.data.token);
-          setSavedCreds(email, accessKey);
+          setSavedCreds(email, true);
           showApp(r.data.user);
         }).catch(function () {
           if (btn) { btn.disabled = false; btn.textContent = 'Entrar'; }
@@ -316,7 +425,156 @@
       });
     }
 
+    var passwordForm = $('passwordForm');
+    if (passwordForm) {
+      passwordForm.addEventListener('submit', function (ev) {
+        ev.preventDefault();
+        var password = ($('authNewPassword') || {}).value || '';
+        var confirm = ($('authConfirmPassword') || {}).value || '';
+        var btn = $('passwordSubmit');
+        var err = $('passwordError');
+        if (err) { err.hidden = true; err.textContent = ''; }
+        if (password !== confirm) {
+          if (err) {
+            err.hidden = false;
+            err.textContent = 'A confirmação da senha não confere.';
+          }
+          return;
+        }
+        if (btn) { btn.disabled = true; btn.textContent = 'Salvando…'; }
+        api('/api/auth/set-password', {
+          method: 'POST',
+          body: {
+            setupToken: setupToken,
+            password: password,
+            confirmPassword: confirm
+          }
+        }).then(function (r) {
+          if (btn) { btn.disabled = false; btn.textContent = 'Salvar senha e entrar'; }
+          if (!r.data || !r.data.ok) {
+            if (err) {
+              err.hidden = false;
+              err.textContent = (r.data && r.data.error) || 'Não foi possível salvar a senha.';
+            }
+            return;
+          }
+          setupToken = '';
+          setToken(r.data.token);
+          setSavedCreds((r.data.user && r.data.user.email) || '', true);
+          showApp(r.data.user);
+        }).catch(function () {
+          if (btn) { btn.disabled = false; btn.textContent = 'Salvar senha e entrar'; }
+          if (err) {
+            err.hidden = false;
+            err.textContent = 'Falha de conexão com o servidor. Tente novamente.';
+          }
+        });
+      });
+    }
+
+    var forgotForm = $('forgotForm');
+    if (forgotForm) {
+      forgotForm.addEventListener('submit', function (ev) {
+        ev.preventDefault();
+        var btn = $('forgotSubmit');
+        var err = $('forgotError');
+        var ok = $('forgotOk');
+        if (err) { err.hidden = true; err.textContent = ''; }
+        if (ok) { ok.hidden = true; ok.textContent = ''; }
+        if (btn) { btn.disabled = true; btn.textContent = 'Enviando…'; }
+        api('/api/auth/forgot-password', {
+          method: 'POST',
+          body: { email: ($('forgotEmail') || {}).value || '' }
+        }).then(function (r) {
+          if (btn) { btn.disabled = false; btn.textContent = 'Enviar link'; }
+          if (!r.data || !r.data.ok) {
+            if (err) {
+              err.hidden = false;
+              err.textContent = (r.data && r.data.error) || 'Não foi possível enviar o e-mail.';
+            }
+            return;
+          }
+          if (ok) {
+            ok.hidden = false;
+            ok.textContent = r.data.message || 'Se este e-mail tiver acesso, você receberá orientações em instantes.';
+          }
+        }).catch(function () {
+          if (btn) { btn.disabled = false; btn.textContent = 'Enviar link'; }
+          if (err) {
+            err.hidden = false;
+            err.textContent = 'Falha de conexão com o servidor. Tente novamente.';
+          }
+        });
+      });
+    }
+
+    var resetForm = $('resetForm');
+    if (resetForm) {
+      resetForm.addEventListener('submit', function (ev) {
+        ev.preventDefault();
+        var password = ($('resetPassword') || {}).value || '';
+        var confirm = ($('resetConfirmPassword') || {}).value || '';
+        var btn = $('resetSubmit');
+        var err = $('resetError');
+        if (err) { err.hidden = true; err.textContent = ''; }
+        if (password !== confirm) {
+          if (err) {
+            err.hidden = false;
+            err.textContent = 'A confirmação da senha não confere.';
+          }
+          return;
+        }
+        if (btn) { btn.disabled = true; btn.textContent = 'Salvando…'; }
+        api('/api/auth/reset-password', {
+          method: 'POST',
+          body: {
+            token: pendingResetToken,
+            password: password,
+            confirmPassword: confirm
+          }
+        }).then(function (r) {
+          if (btn) { btn.disabled = false; btn.textContent = 'Salvar nova senha'; }
+          if (!r.data || !r.data.ok) {
+            if (err) {
+              err.hidden = false;
+              err.textContent = (r.data && r.data.error) || 'Não foi possível redefinir a senha.';
+            }
+            return;
+          }
+          pendingResetToken = '';
+          clearResetQuery();
+          setToken(r.data.token);
+          setSavedCreds((r.data.user && r.data.user.email) || '', true);
+          showApp(r.data.user);
+        }).catch(function () {
+          if (btn) { btn.disabled = false; btn.textContent = 'Salvar nova senha'; }
+          if (err) {
+            err.hidden = false;
+            err.textContent = 'Falha de conexão com o servidor. Tente novamente.';
+          }
+        });
+      });
+    }
+
+    // Migra credenciais antigas (que guardavam a chave) para o novo formato
+    try {
+      var rawOld = localStorage.getItem(CREDS_KEY);
+      if (rawOld) {
+        var oldData = JSON.parse(rawOld);
+        if (oldData && oldData.email && oldData.accessKey && oldData.hasPassword === undefined) {
+          setSavedCreds(oldData.email, false);
+        }
+      }
+    } catch (e) {}
+
     syncLoginForm();
+
+    var urlReset = readResetTokenFromUrl();
+    if (urlReset) {
+      clearToken();
+      showReset(urlReset);
+      return;
+    }
 
     var token = getToken();
     if (!token) {
@@ -331,7 +589,6 @@
         showGate('');
       }
     }).catch(function () {
-      // Se a API não responder, mantém o gate (não libera o produto offline)
       clearToken();
       showGate('Servidor indisponível. Tente novamente em instantes.');
     });

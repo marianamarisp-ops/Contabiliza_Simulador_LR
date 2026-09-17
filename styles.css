@@ -64,8 +64,8 @@ body{font-family:"Montserrat",system-ui,-apple-system,BlinkMacSystemFont,"Segoe 
 .auth-card{width:100%;max-width:440px;background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:28px 26px 24px;border-top:4px solid var(--lr)}
 .auth-buy{display:flex;width:100%;margin-top:12px}
 .auth-buy[hidden]{display:none!important}
-.auth-back,.auth-switch{display:flex;width:100%;margin-top:10px}
-.auth-back[hidden],.auth-switch[hidden]{display:none!important}
+.auth-back,.auth-switch,.auth-link-btn{display:flex;width:100%;margin-top:10px}
+.auth-back[hidden],.auth-switch[hidden],.auth-link-btn[hidden]{display:none!important}
 .auth-field-hint{font-size:.78rem;color:var(--muted);line-height:1.4;margin-top:6px}
 a.btn{display:inline-flex;align-items:center;justify-content:center;text-decoration:none;box-sizing:border-box}
 .auth-logo{height:64px;width:auto;display:block;margin-bottom:16px}
